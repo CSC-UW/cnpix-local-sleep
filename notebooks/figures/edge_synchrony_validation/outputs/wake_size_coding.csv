@@ -1,0 +1,23 @@
+coding,edge,k,NOD.Incline
+unadjusted,onset,16,0.20563029611481576
+unadjusted,offset,16,-1.136425438274381
+"shared curve, free amplitude (shipped)",onset,16,-0.4075500118816725
+"shared curve, free amplitude (shipped)",offset,16,-1.6650074843871225
+"shared curve, pooled amplitude",onset,16,-0.49516109556417837
+"shared curve, pooled amplitude",offset,16,-1.8423896747734427
+per-combo exact factor,onset,16,-0.08547807628967623
+per-combo exact factor,offset,16,-0.9654915143579574
+per-combo quantile[3],onset,16,0.14048514957110625
+per-combo quantile[3],offset,16,-1.6490540099239983
+per-combo quantile[6],onset,16,-0.0809704976284817
+per-combo quantile[6],offset,16,-1.3869334354597553
+per-combo quantile[10],onset,16,-0.4159339832340135
+per-combo quantile[10],offset,16,-0.8114367643851801
+linear in n,onset,16,0.11583294355140612
+linear in n,offset,16,-1.7630863622688104
+quadratic,onset,16,0.20287835289831438
+quadratic,offset,16,-1.9479293919887404
+cubic,onset,16,0.09608145855871121
+cubic,offset,16,-1.8293715648084286
+natural spline,onset,16,0.31563959949051684
+natural spline,offset,16,-1.874717313448435

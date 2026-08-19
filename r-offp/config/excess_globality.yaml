@@ -1,0 +1,38 @@
+# Cross-structure "excess globality" (observed vs windowed null) analysis config.
+#
+# A self-contained companion to cx_homeostasis.yaml / locality.yaml. It drives the
+# excess-globality pipeline (R/excess_globality_analysis.R) and is consumed only
+# by scripts/run_excess_globality_analysis.R, which writes to the separate
+# _output_excess_globality/ root. Delete this file (plus the excess-globality R
+# files, script, test, and _output_excess_globality/) to remove the feature
+# entirely; nothing here affects the layer-agnostic or locality
+# analyses.
+#
+# Data are produced by cnpix_local_sleep's `off-analysis export-excess-globality-offs`
+# (LLAS only, whole-recording NREM). One question: across multi-cortical subjects,
+# is the observed cross-structure overlap degree greater than the duration-matched
+# windowed-shift null? The LRT main effect of `quantity` (observed vs null), with
+# `(1 | subject) + (1 | subject:structure)` pairing, is the "observed > chance"
+# test, the r-offp port of cnpix_local_sleep's test_excess_above_chance.
+
+# Observed-vs-null posthoc contrast (null is the factor reference level).
+quantity_contrast: "observed - null = 0"
+
+# Whole-recording coarse state (single-state fit, analysis kind `state`).
+states: [NREM]
+
+model_defaults:
+  excess_paired: &excess_paired
+    name: excess_paired
+    fe_terms: [quantity]
+    re_terms: ["(1 | subject)", "(1 | subject:structure)"]
+    weighted: false
+
+# Shared analysis list. One main-effect fit on the whole-recording NREM window.
+analyses_all: &analyses_all
+  - {kind: state, model: *excess_paired}
+
+datasets:
+  llas:
+    response_variables:
+      - {response_variable: value, analyses: *analyses_all}

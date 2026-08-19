@@ -1,0 +1,30 @@
+# Manuscript Supplementary Table S3b: OFF size vs globality (Fig. 4d-f).
+#
+# Consumed by manuscript_tables.py (table_type: size_globality). Data produced by
+# cnpix_local_sleep `off-analysis export-size-globality-correlations` (requires NFS; re-runs
+# the windowed-shift null). Per subject-structure, the Spearman correlation of each
+# OFF size property (duration, span, area) with the RAW cross-structure overlap
+# degree and with the EXCESS globality (observed - windowed-null), pooled across
+# combinations by the same random-effects (DerSimonian-Laird) meta-analysis used
+# for the per-event correlations. A raw rho that collapses toward 0 for the excess
+# target means the size-globality link is largely mechanical; a surviving positive
+# excess rho indicates genuine coordination.
+
+table_type: size_globality
+results_dir: inst
+data_csv: inst/extdata/manuscript_size_globality_correlations.csv
+output_dir: _output_manuscript
+sheet: "S3b Size-globality"
+
+title: "Supplementary Table S3b. OFF-period size versus cross-structure globality."
+caption: >-
+  Within each unique subject-structure pair, the Spearman correlation of each
+  OFF-period size property with the raw cross-structure overlap degree and with the
+  excess globality (observed overlap degree minus the mean over the windowed-shift
+  null, which removes the component attributable to OFF duration and rate alone),
+  pooled across pairs by a random-effects (DerSimonian-Laird) meta-analysis on Fisher
+  z-transformed coefficients (>= 10 OFF periods per pair). Pooled r is given with its
+  analytic 95% CI; p is the two-sided test of a non-zero pooled correlation; I² is
+  the between-pair heterogeneity; k = unique subject-structure pairs pooled. All
+  OFFs, whole-recording NREM sleep.
+section_title: ""

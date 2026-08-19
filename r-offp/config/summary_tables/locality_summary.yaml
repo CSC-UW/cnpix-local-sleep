@@ -1,0 +1,53 @@
+# Summary table config for the locality (Local vs Overlapping) MAIN-EFFECT
+# results (requests 2 & 3).
+#
+# Reuses summarize_results.py unchanged: each locality main-effect results.json
+# has the same shape as the layer-agnostic one, with the analysis kind stored in
+# the `condition_set` slot and a single `Overlapping - Local` posthoc.
+#
+# Covers request 2 (within each statistical condition) and request 3 (within
+# whole-recording NREM / Wake). Request 1 (condition contrasts on
+# mean_overlap_degree) and the condition/state x overlap_status interactions have
+# a different JSON shape and are NOT summarized here; read their summary.txt /
+# results.json under _output_locality/.../overlap_degree/ and
+# _output_locality/.../interaction-*/.
+#
+# Run: python summarize_results.py config/summary_tables/locality_summary.yaml
+
+results_dir: _output_locality
+config: config/locality.yaml
+
+contrast_labels:
+  "Overlapping - Local = 0": "Overlapping - Local"
+
+# Each entry is [response_variable, dataset, analysis_kind, model].
+# analysis_kind is the `condition_set` slot: cond-<condition> (request 2) or
+# state-<NREM|Wake> (request 3). All use locality_paired.
+entries:
+  # --- request 2: within each statistical condition ---
+  - [median_duration, llas, cond-Early.BSL.NREM, locality_paired]
+  - [median_duration, llas, cond-Early.REC.NREM.Match, locality_paired]
+  - [median_duration, llas, cond-Early.NOD.Wake, locality_paired]
+  - [median_duration, llas, cond-Late.NOD.Wake, locality_paired]
+  - [median_duration, llas, cond-Early.REC.NREM, locality_paired]
+  - [median_duration, llas, cond-Late.REC.NREM, locality_paired]
+  - [median_span, llas, cond-Early.BSL.NREM, locality_paired]
+  - [median_span, llas, cond-Early.REC.NREM.Match, locality_paired]
+  - [median_span, llas, cond-Early.NOD.Wake, locality_paired]
+  - [median_span, llas, cond-Late.NOD.Wake, locality_paired]
+  - [median_span, llas, cond-Early.REC.NREM, locality_paired]
+  - [median_span, llas, cond-Late.REC.NREM, locality_paired]
+  - [median_area, llas, cond-Early.BSL.NREM, locality_paired]
+  - [median_area, llas, cond-Early.REC.NREM.Match, locality_paired]
+  - [median_area, llas, cond-Early.NOD.Wake, locality_paired]
+  - [median_area, llas, cond-Late.NOD.Wake, locality_paired]
+  - [median_area, llas, cond-Early.REC.NREM, locality_paired]
+  - [median_area, llas, cond-Late.REC.NREM, locality_paired]
+
+  # --- request 3: within whole-recording NREM / Wake ---
+  - [median_duration, llas, state-NREM, locality_paired]
+  - [median_duration, llas, state-Wake, locality_paired]
+  - [median_span, llas, state-NREM, locality_paired]
+  - [median_span, llas, state-Wake, locality_paired]
+  - [median_area, llas, state-NREM, locality_paired]
+  - [median_area, llas, state-Wake, locality_paired]

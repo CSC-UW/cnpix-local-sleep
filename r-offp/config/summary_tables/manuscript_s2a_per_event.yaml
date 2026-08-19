@@ -1,0 +1,30 @@
+# Manuscript Supplementary Table S2a: per-event OFF property vs delta power.
+#
+# Consumed by manuscript_tables.py (table_type: per_event_meta). Data produced by
+# cnpix_local_sleep `python -m cnpix_local_sleep.morphological.pipeline.export_manuscript_correlations`
+# (per-event branch), which recomputes the has_value.ipynb pooled Spearman
+# correlations from the cached OFF+bandpower table. Within each subject-structure
+# pair, the Spearman correlation between an OFF property and its co-occurring
+# delta value is pooled by a random-effects (DerSimonian-Laird) meta-analysis on
+# Fisher-z. Multiple comparisons across the four properties are Bonferroni-controlled.
+
+table_type: per_event_meta
+results_dir: inst
+data_csv: inst/extdata/manuscript_per_event_correlations.csv
+output_dir: _output_manuscript
+
+title: "Supplementary Table S2a. Per-event correlation between OFF-period properties and co-occurring delta power."
+caption: >-
+  Within each unique subject-structure pair, the Spearman rank correlation between
+  each OFF-period property and its co-occurring delta value (area with total log
+  delta; duration, span and residual MUA with peak log delta), pooled across pairs by
+  a random-effects (DerSimonian-Laird) meta-analysis on Fisher z-transformed
+  coefficients. Pooled r is given with its analytic 95% CI; p is the two-sided test
+  of a non-zero pooled correlation; multiple comparisons across the four properties
+  are Bonferroni-controlled (α = 0.05/4); cells are marked when a correlation is
+  not significant after correction. I² is the between-pair heterogeneity; k = unique
+  subject-structure pairs pooled. All OFFs = relaxed criterion; Medium + Large =
+  stringent; Small = relaxed but not stringent.
+section_title: ""
+
+sheet: "S2a Per-event corr"

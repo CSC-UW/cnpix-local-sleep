@@ -1,0 +1,34 @@
+# Manuscript Supplementary Table S2b: epoched partial correlations (added value).
+#
+# Consumed by manuscript_tables.py (table_type: epoched_partial). Data produced by
+# cnpix_local_sleep `python -m cnpix_local_sleep.morphological.pipeline.export_manuscript_correlations`
+# (epoched branch), which tidies the manuscript-facing 2-tier "area" pooled
+# parquets from incremental_added_value{,_wake}.ipynb (10-s epochs, Newey-West HAC
+# standard errors). Tests whether Small OFF area predicts epoch delta power beyond
+# Medium + Large OFF area.
+
+table_type: epoched_partial
+results_dir: inst
+data_csv: inst/extdata/manuscript_epoched_partial_correlations.csv
+output_dir: _output_manuscript
+
+title: "Supplementary Table S2b. Epoched partial correlation of OFF-period area with delta power."
+caption: >-
+  Standardized regression of each 10-s NREM/Wake epoch's mean log delta power on
+  the OFF-period area present in that epoch, summed at each size level (Medium +
+  Large = stringent criterion; Small = relaxed but not stringent). In the marginal
+  model, delta is predicted from one level's area alone. The partial (semipartial)
+  coefficient is obtained by residualizing both delta power and that level's area on
+  the other level and regressing the delta residuals on the standardized area
+  residuals; a nonzero value indicates that level's area predicts delta power beyond
+  the other level. Predictors and response are z-scored within each subject-structure
+  pair, so coefficients are standardized betas; standard errors are
+  heteroskedasticity- and autocorrelation-consistent (Newey-West, ~5-min lag).
+  Per-pair coefficients are pooled by the same random-effects meta-analysis, giving a
+  pooled beta with analytic 95% CI. (pooled β)² is the square of that row's pooled
+  coefficient: the level's R² for the marginal model, and the increment in R² that
+  level contributes over the other alone for the semipartial. I² = between-pair
+  heterogeneity; k = unique subject-structure pairs pooled.
+section_title: ""
+
+sheet: "S2b Epoched partial"

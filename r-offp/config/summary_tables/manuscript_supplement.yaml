@@ -1,0 +1,17 @@
+# Manuscript statistical supplement: ordered list of tables assembled into ONE
+# editable Word document and ONE Excel workbook (one sheet per table).
+#
+# Build:  python manuscript_tables.py --supplement config/summary_tables/manuscript_supplement.yaml
+# Paths below are relative to this file's directory.
+
+output_dir: _output_manuscript
+tables:
+  - manuscript_s0_models.yaml
+  - manuscript_s1a_homeostasis.yaml
+  - manuscript_s2a_per_event.yaml
+  - manuscript_s2b_epoched.yaml
+  - manuscript_s3a_locality.yaml
+  - manuscript_s3b_size_globality.yaml
+  - manuscript_s4a_sd_rebound.yaml
+  - manuscript_s4b_robustness.yaml
+  - manuscript_s5_depth.yaml

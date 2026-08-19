@@ -1,0 +1,82 @@
+[project]
+name = "cnpix-local-sleep"
+version = "0.1.0"
+authors = [
+  { name="Tom Bugnon", email="bugnon@wisc.edu"},
+  { name="Graham Findlay", email="gfindlay@wisc.edu" }
+]
+description = "Code and data behind `Local sleep during wake: A Neuropixels view`."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+# Sibling workspace packages are direct git URLs, never bare names, so an
+# external clone resolves them without the rest of the workspace. See
+# gfys_workspace/AGENTS.md, "Package Dual-Use Install Pattern".
+dependencies = [
+    "brainglobe-atlasapi",
+    "click",
+    "cnpix @ git+https://github.com/CSC-UW/cnpix.git@main",
+    "dask[complete]",
+    "dask-image",
+    "ecephys @ git+https://github.com/CSC-UW/ecephys.git@develop",
+    "matplotlib",
+    "numba",
+    "numpy",
+    "ome-zarr>=0.11.0,<0.12",
+    "on_off_detection @ git+https://github.com/CSC-UW/on_off_detection.git@main",
+    "openpyxl",
+    "pandas",
+    "pillow",
+    "psutil",
+    "pubplots @ git+https://github.com/grahamfindlay/pubplots.git@main",
+    "python-docx",
+    "pyyaml",
+    "scipy",
+    "seaborn",
+    "spikeinterface",
+    "statsmodels",
+    "threadpoolctl",
+    "tqdm",
+    "wisc-ecephys-tools @ git+https://github.com/CSC-UW/wisc_ecephys_tools.git@main",
+    "xarray",
+    "zarr",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+    "pytest>=7.0.0",
+    "ruff",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build]
+artifacts = [
+    "cnpix_local_sleep/data/*.csv",
+    "cnpix_local_sleep/morphological/mua/data/*.csv",
+    "cnpix_local_sleep/morphological/mua/data/*.yml",
+    "cnpix_local_sleep/stacks/data/*.csv",
+    "cnpix_local_sleep/unit_based/data/*.csv",
+]
+
+[project.scripts]
+off-analysis = "cnpix_local_sleep.morphological.analysis_cli:main"
+morphological-offs = "cnpix_local_sleep.morphological.cli:main"
+unit-based-offs = "cnpix_local_sleep.unit_based.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "requires_nfs: marks tests that require mounted production NFS data",
+    "requires_release_data: marks tests that read the event-level OFF tables published as Release assets",
+]
+
+[tool.ruff]
+line-length = 88

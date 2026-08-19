@@ -1,0 +1,102 @@
+# Package data.
+#
+# The 24 summarized tables in inst/extdata ARE committed (1.31 MB). They are the
+# inputs every manuscript table is built from, and the build has to work offline
+# from a bare clone. Only the three event-level OFF tables are too large to
+# commit (347 MB together; one exceeds GitHub's 100 MB per-file limit) -- those
+# are published as Release assets and fetched on demand. See ../README.md.
+#
+# The negation is required, and it has to be here rather than in the root
+# .gitignore: the root file carries its own `*.parquet`, and a deeper .gitignore
+# only overrides a shallower one for paths it actually matches.
+!inst/extdata/*.parquet
+inst/extdata/full48h_llas_offs.parquet
+inst/extdata/full48h_clas_offs.parquet
+inst/extdata/full48h_blas_offs.parquet
+config/summary_tables/summary.csv
+config/summary_tables/archive/
+*.pyc
+
+# Outputs and other large files
+_output*/
+_figures/
+*.pdf
+
+# IDE directories
+.claude/
+.cursor/
+.vscode/
+
+# Quarto files
+/.quarto/
+**/*.quarto_ipynb
+
+# Pixi environments
+.pixi/
+!.pixi/config.toml
+
+# renv
+renv/library/
+renv/staging/
+renv/sandbox/
+
+# Other environment files.
+# .Rprofile is tracked: it is renv's bootstrap hook (`source("renv/activate.R")`),
+# and renv/activate.R is tracked already. Without it a fresh clone has the renv
+# machinery but no autoload, so `renv::restore()` does not bootstrap.
+.here
+
+##### Stock GitHub R .gitignore entries #####
+
+# History files
+.Rhistory
+.Rapp.history
+
+# Session Data files
+.RData
+.RDataTmp
+
+# User-specific files
+.Ruserdata
+
+# Example code in package build process
+*-Ex.R
+
+# Output files from R CMD build
+/*.tar.gz
+
+# Output files from R CMD check
+/*.Rcheck/
+
+# RStudio files
+.Rproj.user/
+
+# produced vignettes
+vignettes/*.html
+vignettes/*.pdf
+
+# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
+.httr-oauth
+
+# knitr and R markdown default cache directories
+*_cache/
+/cache/
+
+# Temporary files created by R markdown
+*.utf8.md
+*.knit.md
+
+# R Environment Variables
+.Renviron
+
+# pkgdown site
+docs/
+
+# translation temp files
+po/*~
+
+# RStudio Connect folder
+rsconnect/
+# pixi environments
+.pixi/*
+!.pixi/config.toml

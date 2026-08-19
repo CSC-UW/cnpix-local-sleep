@@ -1,0 +1,25 @@
+# Detection opts for morphological detection on MUA traces (500Hz).
+
+# How we get the thresholds
+threshold_method: from_value # Set quantile threshold directly in core.py
+# Smoothing
+ndimage_filter_type: median
+ndimage_filter_kwargs:
+  size:
+    - 15 # 30ms at 500Hz (see `n_samples_connect` below)
+    - 1  # N_channels
+# Morphological cleaning
+clean_binary_mask: true
+n_channels_clean: 4
+# Was 3 channels
+n_channels_connect: 3
+# Was 5 channels
+n_samples_clean: 15 # 30ms at 500Hz. 
+# Was 17 samples -> 34ms at 500Hz.
+# Before that, was 10 samples -> 33ms at 300Hz (for tom-bugnon method).
+n_samples_connect: null
+# Per-bin thresholds: documentation of the canonical bin size.
+# At runtime, bin boundaries come from the zarr's native dask-chunk
+# layout (typically 165 000 samples / ~5.5 min at 500 Hz). This key is
+# carried for provenance and as a sanity-check value, not for
+# rebinning at fit time.

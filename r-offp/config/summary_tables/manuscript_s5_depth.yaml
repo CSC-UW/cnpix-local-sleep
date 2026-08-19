@@ -1,0 +1,34 @@
+# Manuscript Supplementary Table S5: depth profile of OFF involvement.
+#
+# Consumed by manuscript_tables.py (table_type: depth_profile). Intercept-only
+# LME group means (metric ~ 1 + (1|subject)) with 95% CIs from lmer and a
+# 5000-draw subject-cluster bootstrap, against the geometry-preserving ("feasible")
+# depth-randomized null. Two departure metrics per the Methods: total variation
+# and the signed superficial-vs-deep asymmetry (count-occupancy = number of OFF
+# periods involving each channel). Non-zero means / CIs excluding 0 indicate a
+# depth profile that departs from the depth-uniform null.
+
+table_type: depth_profile
+results_dir: _output_depth_profile
+summary_csv: _output_depth_profile/depth_profile_group_summary.csv
+output_dir: _output_manuscript
+section_title: ""
+
+title: "Supplementary Table S5. Depth profile of OFF-period involvement versus a geometry-preserving null."
+caption: >-
+  Departure of the empirical OFF-period depth profile from a geometry-preserving
+  null that rigidly translates each detected OFF along the depth axis (preserving
+  its size and shape), for the cortical structures whose probe trajectory crossed
+  the layers with sufficient vertical extent (span > 500 µm). Total variation is
+  the fraction of OFF mass that must be relocated for the null to match the
+  observation; the superficial-deep asymmetry is the observed-minus-null fraction
+  of OFF mass in the superficial half of the span (positive = excess toward the
+  cortical surface). Group means are the fixed intercept of metric ~ 1 + (1 |
+  subject); 95% CIs are given from the LME and from a 5000-iteration subject-cluster
+  bootstrap. n = unique subject-structure pairs / subjects.
+
+metrics:
+  - {col: occ_count_feasible_tv, label: "Total variation (fraction of OFF mass relocated)"}
+  - {col: occ_count_feasible_asym, label: "Superficial-deep asymmetry (fraction toward surface)"}
+
+sheet: "S5 Depth"

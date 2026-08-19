@@ -1,0 +1,834 @@
+model_defaults:
+  weighted_no_structure: &weighted_no_structure
+    name: weighted_no_structure
+    fe_terms: [condition]
+    re_terms: ["(1 | subject)"]
+    weighted: true
+  crossed: &crossed
+    name: crossed
+    fe_terms: [condition]
+    re_terms: ["(1 | subject)", "(1 | structure)"]
+    weighted: false
+  crossed_weighted: &crossed_weighted
+    name: crossed_weighted
+    fe_terms: [condition]
+    re_terms: ["(1 | subject)", "(1 | structure)"]
+    weighted: true
+  crossed_interaction: &crossed_interaction
+    name: crossed_interaction
+    fe_terms: [condition]
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: false
+  crossed_interaction_log: &crossed_interaction_log
+    name: crossed_interaction_log
+    fe_terms: [condition]
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: false
+    transform: log
+  crossed_interaction_sqrt: &crossed_interaction_sqrt
+    name: crossed_interaction_sqrt
+    fe_terms: [condition]
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: false
+    transform: sqrt
+  crossed_interaction_weighted: &crossed_interaction_weighted
+    name: crossed_interaction_weighted
+    fe_terms: [condition]
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: true
+  crossed_interaction_weighted_log: &crossed_interaction_weighted_log
+    name: crossed_interaction_weighted_log
+    fe_terms: [condition]
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: true
+    transform: log
+  crossed_interaction_weighted_sqrt: &crossed_interaction_weighted_sqrt
+    name: crossed_interaction_weighted_sqrt
+    fe_terms: [condition]
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: true
+    transform: sqrt
+# TODO: Add an alternative to simple weighted models (which weight by the inverse
+# of total variance). Instead fit an unweighted model, extract the residuals for 
+# each group (which will have the random effects removed) and then use the per-group 
+# residual variance as weights for a new model. 
+# RATIONALE: Ideally, weights are proportional to inverse residual variance, but 
+# inverse total variance combiens residual + random effect variance, which can 
+# distort weights relative to an ideal weighting, and could explain why we often
+# do not see equal residual variance across grops in weighted+transformed models.
+
+# Condition sets bundle {name, conditions, posthocs} and are an axis orthogonal
+# to off_type (llas/clas/blas). Each
+# response variable selects one or more (condition_set x model) analyses below;
+# a separate fit is produced per set (e.g. `wake` and `nrem` are independent
+# fits, each with its own variance components, rather than a single `six` fit).
+condition_sets:
+  six: &cs_six
+    name: six
+    conditions:
+      - Early.BSL.NREM
+      - Early.REC.NREM.Match
+      - Early.NOD.Wake
+      - Late.NOD.Wake
+      - Early.REC.NREM
+      - Late.REC.NREM
+    posthocs:
+      - "Early.REC.NREM - Early.REC.NREM.Match = 0"
+      - "Early.REC.NREM - Early.BSL.NREM = 0"
+      - "Early.REC.NREM - Late.REC.NREM = 0"
+      - "Early.BSL.NREM - Early.REC.NREM.Match = 0"
+      - "Late.NOD.Wake - Early.NOD.Wake = 0"
+  nrem: &cs_nrem
+    name: nrem
+    conditions:
+      - Early.BSL.NREM
+      - Early.REC.NREM.Match
+      - Early.REC.NREM
+      - Late.REC.NREM
+    posthocs:
+      - "Early.REC.NREM - Early.REC.NREM.Match = 0"
+      - "Early.REC.NREM - Early.BSL.NREM = 0"
+      - "Early.REC.NREM - Late.REC.NREM = 0"
+      - "Early.BSL.NREM - Early.REC.NREM.Match = 0"
+  wake: &cs_wake
+    name: wake
+    conditions:
+      - Early.NOD.Wake
+      - Late.NOD.Wake
+    posthocs:
+      - "Late.NOD.Wake - Early.NOD.Wake = 0"
+
+# Each response variable lists `analyses`, a list of {condition_set, model}
+# pairs. To fit a measure under multiple condition sets, add multiple entries
+# (e.g. rate under both *cs_wake and *cs_nrem). Different models per set are
+# allowed. Output nests under
+#   _output/<dataset>/<condition_set>/<response_var>/<model>/
+# Notes on annotations:
+# - "Non-linearity" may sometimes be due to, or exacerbated by, a boundary effect / variance scale issue. 
+datasets:
+  llas:
+    response_variables:
+      - title: Median duration (s)
+        response_variable: median_duration
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Weakly heteroscedastic; okay
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Moderate boundary effect
+          - {condition_set: *cs_six, model: *crossed_interaction_weighted} # Good; Pick me.
+      - title: MoM duration (s)
+        response_variable: median_median_duration
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Weakly non-linear; okay
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Weakly heteroscedastic; okay
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Moderately heavy-tailed; boundary effect
+          - {condition_set: *cs_six, model: *crossed_interaction_weighted} # Good; Pick me.
+      - title: Median span (um)
+        response_variable: median_span
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Okay
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Okay
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Mild boundary effect
+          - {condition_set: *cs_six, model: *crossed_interaction_weighted} # Good; Pick me.
+      - title: Median area (s*um)
+        response_variable: median_area
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Moderate boundary effect
+          - {condition_set: *cs_six, model: *crossed_interaction_weighted} # Mild positive skew; good. Best of the *cs_six models. Pick me.
+      #- title: Total area (s*um)
+        #response_variable: total_area
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Heavy-tailed; weakly heteroscedastic; Pick me.
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Weak boundary effect; mildly heteroscedastic; Pick me.
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Heavy-tailed; hard boundary effect
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Positive skew; heteroscedastic; failed to converge
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Heavy-tailed; heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Heavy-tailed; heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Heavy-tailed; hard boundary effect
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Heavy-tailed; heteroscedastic
+      - title: Rate (Hz)
+        response_variable: rate
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good; Pick me.
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Mildly heteroscedastic; Pick me.
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Mildly heavy-tailed; hard boundary effect
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Positive skew; heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Heavy-tailed; heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Heavy-tailed; heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Mildy boundary effect
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Weak boundary effect. Best of the *cs_six models?
+      - title: Total area normalized (au)
+        response_variable: total_area_norm
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good; Pick me.
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good; Pick me.
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Hard boundary effect
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Positive skew; heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Heavy-tailed; heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Heavy-tailed; heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Boundary effect
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Heteroscedastic
+      - title: MoM trace (uV)
+        response_variable: median_median_trace
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          - {condition_set: *cs_six, model: *crossed_interaction} # Good
+      - title: Median MAD trace (uV)
+        response_variable: median_mad_trace
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          - {condition_set: *cs_six, model: *crossed_interaction} # Weakly heteroscedastic. Okay
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Weakly heteroscedastic. Okay
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Weakly heteroscedastic. # Okay
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log}  # Weakly heteroscedastic. Okay
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Weakly heteroscedastic. Okay
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Weakly heteroscedastic. Okay
+      - title: Median |onset slope| (s/um)
+        response_variable: median_abs_onset_slope
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Heavy-tailed
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Positive-skew
+          - {condition_set: *cs_six, model: *crossed_interaction_log} # Weakly heavy-tailed
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Weakly heavy-tailed
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt}  # Weakly heavy-tailed and non-linear
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Weakly heavy-tailed and non-linear
+      - title: Median |offset slope| (s/um)
+        response_variable: median_abs_offset_slope
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Heavy-tailed
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Positive-skew
+          #- {condition_set: *cs_six, model: *crossed_interaction_log}  # Contains a zero
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log}  # Contains a zero
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Heavy-tailed
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Heavy-tailed
+      - title: Median onset jitter (s)
+        response_variable: median_onset_jitter
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Very weak boundary effect?
+          - {condition_set: *cs_six, model: *crossed_interaction_weighted} # Good
+      - title: Median offset jitter (s)
+        response_variable: median_offset_jitter
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Very weak boundary effect?
+          - {condition_set: *cs_six, model: *crossed_interaction_weighted} # Good
+      #- title: Median onset MAD (s)
+        #response_variable: median_onset_mad
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} 
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted}
+      #- title: Median offset MAD (s)
+        #response_variable: median_offset_mad
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction}
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted}
+      - title: Mean onset MAD (s)
+        response_variable: mean_onset_mad
+        analyses:
+          - {condition_set: *cs_six, model: *crossed_interaction} # Good
+      - title: Mean offset MAD (s)
+        response_variable: mean_offset_mad
+        analyses:
+          - {condition_set: *cs_six, model: *crossed_interaction} # Good
+      # Size-adjusted MAD is fitted for clas (Medium+Large) only. Across all
+      # OFFs the statistic is a mixture of a hard-floored class and a measurable
+      # one whose weights move with condition, and the cs_six omnibus is
+      # dominated by the NREM-vs-wake difference rather than by condition.
+      #- title: Size-adjusted mean onset MAD (ms)
+        #response_variable: adj_mean_onset_mad
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction}
+      #- title: Size-adjusted mean offset MAD (ms)
+        #response_variable: adj_mean_offset_mad
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction}
+      ##### Pre-normalized response variables #####
+      # (For when the subject:structure term is not included in the model)
+      # ------------------------------------------------
+      #- title: Median relative span (frac)
+        #response_variable: median_span_rel2max
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction}
+      #- title: Median relative area (s*frac)
+        #response_variable: median_area_rel2span
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction}
+      #- title: Total relative area (s*frac)
+        #response_variable: total_area_rel2span
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction}
+      ##### Ungrouped Box-Coxed response variables #####
+      # ------------------------------------------------
+      #- title: Mean Box-Coxed duration (s^λ)
+        #response_variable: mean_boxcox_duration
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction}
+      #- title: Mean Box-Coxed median duration (s^λ)
+        #response_variable: mean_boxcox_median_duration
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction}
+      #- title: Mean Box-Coxed span (um^λ)
+        #response_variable: mean_boxcox_span
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction}
+      #- title: Mean Box-Coxed relative span (frac^λ)
+        #response_variable: mean_boxcox_span_rel2max
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction}
+      #- title: Mean Box-Coxed area ((s*um)^λ)
+        #response_variable: mean_boxcox_area
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction}
+      #- title: Mean Box-Coxed relative area ((s*frac)^λ)
+        #response_variable: mean_boxcox_area_rel2span
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction}
+      ##### Grouped Box-Coxed response variables #####
+      # ----------------------------------------------
+
+  clas:
+    response_variables:
+      - title: Median duration (s)
+        response_variable: median_duration
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good; Pick me.
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good; Pick me.
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Weakly heavy-tailed, but good.
+      - title: MoM duration (s)
+        response_variable: median_median_duration
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good; Pick me.
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good; Pick me.
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Weakly heteroscedastic. Okay. Best of the *cs_six models?
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Weakly heteroscedastic. Okay
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Weakly heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Weakly heteroscedastic
+      - title: Median span (um)
+        response_variable: median_span
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good; Pick me?
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good; Pick me?
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Mild-to-moderate non-linearity
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Weak non-linearity, weak positive skew. Fine. Best of the *cs_six models?
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Mildly heavy-tailed; Failed to converge.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Weakly heavy-tailed; Failed to converge.
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Moderate non-linearity, mildly heavy-tailed
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Weak non-linearity.
+      - title: Median area (s*um)
+        response_variable: median_area
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Weak nonlinearity, but good; Pick this.
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good; Pick this.
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Mild nonlinearity, but okay
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Weak nonlinearity, better. Best of the *cs_six models?
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Mildly heavy-tailed
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Mildly-heavy-tailed
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Mild nonlinearity
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Weaker nonlinearity; heavy-tailed
+      #- title: Total area (s*um)
+        #response_variable: total_area
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Good; Pick this
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good; Pick this
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Heavy-tailed; boundary effect
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Positive skew; heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Mildly heavy-tailed; heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Mildly heavy-tailed; heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Mildly heavy-tailed; boundary effect
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Heteroscedastic
+      - title: Rate (Hz)
+        response_variable: rate
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good; Pick this
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good; Pick this
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Boundary effect
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Midly heterscedastic; best of *cs_six models
+      - title: Total area normalized (au)
+        response_variable: total_area_norm
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good; Pick this
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good; Pick this
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Boundary effect
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Positive skew, mildly heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Mildly heavy-tailed, heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Heavy-tailed, heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt}  # Boundary effect
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Heteroscedastic
+      - title: MoM trace (uV)
+        response_variable: median_median_trace
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Weakly heavy-tailed; good.
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good.
+          - {condition_set: *cs_six, model: *crossed_interaction} # Weakly heavy-tailed; good. Pick me.
+      - title: Median MAD trace (uV)
+        response_variable: median_mad_trace
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          - {condition_set: *cs_six, model: *crossed_interaction} # Good; Pick me. 
+      - title: Median |onset slope| (s/um)
+        response_variable: median_abs_onset_slope
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Moderately heavy-tailed and heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Heavy-tailed, mildly heteroscedastic. 
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Heavy-tailed. better.
+          - {condition_set: *cs_six, model: *crossed_interaction_log} # Weakly heavy-tailed; good.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Moderately heavy-tailed. 
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Heavy-tailed.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Heavy-tailed. Failed to converge.
+      - title: Median |offset slope| (s/um)
+        response_variable: median_abs_offset_slope
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Weakly heavy-tailed; good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Heavy-tailed. 
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Heavy-tailed.
+          - {condition_set: *cs_six, model: *crossed_interaction_log} # Weakly heavy-tailed; good.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Moderatel heavy-tailed
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Heavy-tailed.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Heavy-tailed.
+      - title: Median onset jitter (s)
+        response_variable: median_onset_jitter
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Mildly heavy-tailed
+          - {condition_set: *cs_six, model: *crossed_interaction_weighted} # Weakly heavy-tailed. better.
+      - title: Median offset jitter (s)
+        response_variable: median_offset_jitter
+        analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          - {condition_set: *cs_six, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Weakly heavy-tailed and heteroscedastic.
+      #- title: Median onset MAD (s)
+        #response_variable: median_onset_mad
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Moderately heavy tails; quantization; heteroscedastic. 
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # heavy tails; quantization; heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Zeros
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Zeros
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Moderately heavy tails; quantization; heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Very heavy tails; quantization; heteroscedastic.
+      #- title: Median offset MAD (s)
+        #response_variable: median_offset_mad
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Mildly heavy tails; quantization; heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Mildly heavy tails; quantization; heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Zeros
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Zeros
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Heavy tails; quantization; heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Heavy tails; quantization; heteroscedastic.
+      - title: Size-adjusted mean onset MAD (ms)
+        response_variable: adj_mean_onset_mad
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction}
+          - {condition_set: *cs_wake, model: *crossed_interaction}
+      - title: Size-adjusted mean offset MAD (ms)
+        response_variable: adj_mean_offset_mad
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction}
+          - {condition_set: *cs_wake, model: *crossed_interaction}
+      - title: Mean onset MAD (s)
+        response_variable: mean_onset_mad
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Mildly heavy tailed; moderately heteroscedastic. Best of the cs_six. 
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Moderatley heavy tailed; moderately heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Zeros
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Zeros
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Moderatley heavy tailed; heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Heavy-tailed; heteroscedastic.
+      - title: Mean offset MAD (s)
+        response_variable: mean_offset_mad
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Mildly heavy tailed; mildly heteroscedastic. Best of the cs_six. 
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Mildly heavy tailed; mildly heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Zeros
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Zeros
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Moderately heavy-tailed; heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Heavy tailed; heteroscedastic.
+      ##### Pre-normalized response variables #####
+      # (For when the subject:structure term is not included in the model)
+      # ------------------------------------------------
+      #- title: Median relative span (frac)
+        #response_variable: median_span_rel2max
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      #- title: Median relative area (s*frac)
+        #response_variable: median_area_rel2span
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      #- title: Total relative area (s*frac)
+        #response_variable: total_area_rel2span
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      ##### Ungrouped Box-Coxed response variables #####
+      # ------------------------------------------------
+      #- title: Mean Box-Coxed duration (s^λ)
+        #response_variable: mean_boxcox_duration
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      #- title: Mean Box-Coxed median duration (s^λ)
+        #response_variable: mean_boxcox_median_duration
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      #- title: Mean Box-Coxed span (um^λ)
+        #response_variable: mean_boxcox_span
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      #- title: Mean Box-Coxed relative span (frac^λ)
+        #response_variable: mean_boxcox_span_rel2max
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      #- title: Mean Box-Coxed area ((s*um)^λ)
+        #response_variable: mean_boxcox_area
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      #- title: Mean Box-Coxed relative area ((s*frac)^λ)
+        #response_variable: mean_boxcox_area_rel2span
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      ##### Grouped Box-Coxed response variables #####
+      # ----------------------------------------------
+      #- title: Mean Box-Coxed duration (s^λ)
+        #response_variable: mean_grouped_boxcox_duration
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      #- title: Mean Box-Coxed median duration (s^λ)
+        #response_variable: mean_grouped_boxcox_median_duration
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      #- title: Mean Box-Coxed span (um^λ)
+        #response_variable: mean_grouped_boxcox_span
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      #- title: Mean Box-Coxed relative span (frac^λ)
+        #response_variable: mean_grouped_boxcox_span_rel2max
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      #- title: Mean Box-Coxed area ((s*um)^λ)
+        #response_variable: mean_grouped_boxcox_area
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      #- title: Mean Box-Coxed relative area ((s*frac)^λ)
+        #response_variable: mean_grouped_boxcox_area_rel2span
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+
+  blas:
+    response_variables:
+      # NB: Median span and median area are not meaningful for BLAS,
+      #     because by definition they have near-maximal span.
+      - title: Median duration (s)
+        response_variable: median_duration
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+      - title: MoM duration (s)
+        response_variable: median_median_duration
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+      #- title: Total area (s*um)
+        #response_variable: total_area
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Okay
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Heavy-tailed QQ
+      - title: Rate (Hz)
+        response_variable: rate
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good
+      - title: Total area normalized (au)
+        response_variable: total_area_norm
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good
+      - title: MoM trace (uV)
+        response_variable: median_median_trace
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Mildly heteroscedastic
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Heavy tailed. 
+      - title: Median MAD trace (uV)
+        response_variable: median_mad_trace
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+      - title: Median |onset slope| (s/um)
+        response_variable: median_abs_onset_slope
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Weakly heavy-tailed; weakly heteroscedastic
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Mild positive skew; Okay
+      - title: Median |offset slope| (s/um)
+        response_variable: median_abs_offset_slope
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Weakly heavy-tailed; weakly heteroscedastic
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Okay
+      - title: Median onset jitter (s)
+        response_variable: median_onset_jitter
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Goood
+      - title: Median offset jitter (s)
+        response_variable: median_offset_jitter
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+      - title: Mean onset MAD (s)
+        response_variable: mean_onset_mad
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+      - title: Mean offset MAD (s)
+        response_variable: mean_offset_mad
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Fine
+      ##### Pre-normalized response variables #####
+      # (For when the subject:structure term is not included in the model)
+      # ------------------------------------------------
+      #- title: Total relative area (s*frac)
+        #response_variable: total_area_rel2span
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      ##### Ungrouped Box-Coxed response variables #####
+      # ------------------------------------------------
+      #- title: Mean Box-Coxed duration (s^λ)
+        #response_variable: mean_boxcox_duration
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      #- title: Mean Box-Coxed median duration (s^λ)
+        #response_variable: mean_boxcox_median_duration
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      ##### Grouped Box-Coxed response variables #####
+      # ----------------------------------------------
+      #- title: Mean Box-Coxed duration (s^λ)
+        #response_variable: mean_grouped_boxcox_duration
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+      #- title: Mean Box-Coxed median duration (s^λ)
+        #response_variable: mean_grouped_boxcox_median_duration
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+
+  # LLAS-exclusive = llas & ~clas (OFFs admitted by the LLAS filter but rejected
+  # by the more conservative CLAS filter). Full48h-only dataset (see OFF_TYPES).
+  # Same active response variables as `llas`, each fit under the cs_six condition
+  # set with both the crossed_interaction and crossed_interaction_weighted models.
+  llas_exclusive:
+    response_variables:
+      #- title: Median duration (s)
+        #response_variable: median_duration
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Weird striping of residuals.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Weird striping of residuals.
+      #- title: MoM duration (s)
+        #response_variable: median_median_duration
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Weird striping of residuals.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Weird striping of residuals.
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Weird striping of residuals.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Weird striping of residuals.
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Weird striping of residuals.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Weird striping of residuals.
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Striping of residuals
+          #- {condition_set: *cs_nrem, model: *crossed_interaction_weighted} # Striping of residuals
+          #- {condition_set: *cs_nrem, model: *crossed_interaction_log} # Striping of residuals
+          #- {condition_set: *cs_nrem, model: *crossed_interaction_weighted_log} # Striping of residuals
+          #- {condition_set: *cs_nrem, model: *crossed_interaction_sqrt} # Striping of residuals
+          #- {condition_set: *cs_nrem, model: *crossed_interaction_weighted_sqrt}  # Striping of residuals
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Very heavy tails
+          #- {condition_set: *cs_wake, model: *crossed_interaction_weighted} # Very heavy tails
+          #- {condition_set: *cs_wake, model: *crossed_interaction_log} # Very heavy tails
+          #- {condition_set: *cs_wake, model: *crossed_interaction_weighted_log} # Very heavy tails
+          #- {condition_set: *cs_wake, model: *crossed_interaction_sqrt}  # Very heavy tails
+          #- {condition_set: *cs_wake, model: *crossed_interaction_weighted_sqrt}  # Very heavy tails
+      #- title: Median span (um)
+        #response_variable: median_span
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Heavy-tailed; striping of residuals
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Heavy-tailed; striping of residuals
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Striping of residuals
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Striping of residuals
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt}  # Striping of residuals
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt}  # Striping of residuals
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Striping of residuals
+          #- {condition_set: *cs_nrem, model: *crossed_interaction_weighted} # Striping of residuals
+          #- {condition_set: *cs_nrem, model: *crossed_interaction_log} # Striping of residuals
+          #- {condition_set: *cs_nrem, model: *crossed_interaction_weighted_log} # Striping of residuals
+          #- {condition_set: *cs_nrem, model: *crossed_interaction_sqrt} # Striping of residuals
+          #- {condition_set: *cs_nrem, model: *crossed_interaction_weighted_sqrt}  # Striping of residuals
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Very heavy tails
+          #- {condition_set: *cs_wake, model: *crossed_interaction_weighted} # Very heavy tails
+          #- {condition_set: *cs_wake, model: *crossed_interaction_log} # Very heavy tails
+          #- {condition_set: *cs_wake, model: *crossed_interaction_weighted_log} # Very heavy tails
+          #- {condition_set: *cs_wake, model: *crossed_interaction_sqrt}  # Very heavy tails
+          #- {condition_set: *cs_wake, model: *crossed_interaction_weighted_sqrt}  # Very heavy tails
+      # Mean-aggregated analogs of median_median_duration / median_span: the
+      # per-group MEAN (not median) of the underlying per-OFF quantity. Unlike
+      # the coarsely discretized medians, a mean over many OFFs is continuous, so
+      # traditional Gaussian LMEMs should not show the residual striping those
+      # medians produce. Transform variants left commented (means of heavy-tailed
+      # OFFs may need log/sqrt); pare by diagnostics.
+      - title: Mean of median duration (s)
+        response_variable: mean_median_duration
+        analyses:
+          - {condition_set: *cs_six,  model: *crossed_interaction} # Good
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+      - title: Mean span (um)
+        response_variable: mean_span
+        analyses:
+          #- {condition_set: *cs_six,  model: *crossed_interaction} # Mildly heteroscedastic
+          #- {condition_set: *cs_six,  model: *crossed_interaction_weighted} # Mildly heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Mildly heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Mildly heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Mildly heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Mildly heteroscedastic
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good
+      - title: Median area (s*um)
+        response_variable: median_area
+        analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Mild heavy tails; heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Mild-to-moderate heavy tails; heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Heavy tails; weakly heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Heavy tails; weakly heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Heavy tails; weakly heteroscedastic; best of the *cs_six models
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Heavy tails; weakly heteroscedastic
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good
+      #- title: Mean area (s*um)
+        #response_variable: mean_area
+        #analyses:
+          #- {condition_set: *cs_six,  model: *crossed_interaction} # Mildly heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Mildly heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Mildly heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Mildly heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Mildly heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Mildly heteroscedastic.
+          #- {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_wake, model: *crossed_interaction} # Good
+      - title: Rate (Hz)
+        response_variable: rate
+        analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Boundary effect
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Positive skew; Heteroscedastic
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good
+      - title: Total area normalized (au)
+        response_variable: total_area_norm
+        analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Boundary effect
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Positive skew; Heteroscedastic
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good
+      - title: MoM trace (uV)
+        response_variable: median_median_trace
+        analyses:
+          - {condition_set: *cs_six, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Good
+      #- title: Mean median trace (uV)
+        #response_variable: mean_median_trace
+        #analyses:
+          #- {condition_set: *cs_six,  model: *crossed_interaction}
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+          #- {condition_set: *cs_wake, model: *crossed_interaction}
+      - title: Median MAD trace (uV)
+        response_variable: median_mad_trace
+        analyses:
+          - {condition_set: *cs_six, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted}
+      #- title: Mean MAD trace (uV)
+        #response_variable: mean_mad_trace
+        #analyses:
+          #- {condition_set: *cs_six,  model: *crossed_interaction} # Pick this
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+          #- {condition_set: *cs_wake, model: *crossed_interaction}
+      #- title: Median |onset slope| (s/um)
+        #response_variable: median_abs_onset_slope
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Good
+          ##- {condition_set: *cs_six, model: *crossed_interaction_weighted}
+      #- title: Median |offset slope| (s/um)
+        #response_variable: median_abs_offset_slope
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted}
+      #- title: Median onset jitter (s)
+        #response_variable: median_onset_jitter
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Heteroscedastic
+      #- title: Median offset jitter (s)
+        #response_variable: median_offset_jitter
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Mildly heteroscedastic
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Mildly heteroscedastic
+      #- title: Median onset MAD (s)
+        #response_variable: median_onset_mad
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} 
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} 
+      #- title: Median offset MAD (s)
+        #response_variable: median_offset_mad
+        #analyses:
+          #- {condition_set: *cs_six, model: *crossed_interaction} 
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted}
+      # Size-adjusted MAD is fitted for clas (Medium+Large) only. In this class
+      # 32% of events are hard-floored at MAD == 0 by the detector's 4-channel
+      # structuring element, so adjustment cannot recover information the
+      # statistic never carried, and the estimate is not stable across
+      # defensible size codings.
+      #- title: Size-adjusted mean onset MAD (ms)
+        #response_variable: adj_mean_onset_mad
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+          #- {condition_set: *cs_wake, model: *crossed_interaction}
+      #- title: Size-adjusted mean offset MAD (ms)
+        #response_variable: adj_mean_offset_mad
+        #analyses:
+          #- {condition_set: *cs_nrem, model: *crossed_interaction}
+          #- {condition_set: *cs_wake, model: *crossed_interaction}
+      - title: Mean onset MAD (s)
+        response_variable: mean_onset_mad
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Mildly heavy-tailed; Heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Moderately heavy-tailed; heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Zeros
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Zeros
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Heavy tailed; Heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Heavy tailed; Heteroscedastic.
+      - title: Mean offset MAD (s)
+        response_variable: mean_offset_mad
+        analyses:
+          - {condition_set: *cs_nrem, model: *crossed_interaction} # Good
+          - {condition_set: *cs_wake, model: *crossed_interaction} # Good
+          #- {condition_set: *cs_six, model: *crossed_interaction} # Heavy-tailed; Heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted} # Moderately heavy-tailed; mildly heteroscedastic. Best of the cs_six.
+          #- {condition_set: *cs_six, model: *crossed_interaction_log} # Zeros
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_log} # Zeros
+          #- {condition_set: *cs_six, model: *crossed_interaction_sqrt} # Heavy-tailed; Heteroscedastic.
+          #- {condition_set: *cs_six, model: *crossed_interaction_weighted_sqrt} # Heavy-tailed; Heteroscedastic.

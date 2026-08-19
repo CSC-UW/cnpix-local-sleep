@@ -1,0 +1,85 @@
+# Summary table config for summarize_results.py
+#
+# Paths are relative to the r-offp/ root directory.
+
+results_dir: _output
+config: config/cx_homeostasis.yaml
+
+# Short labels for posthoc contrast column headers
+contrast_labels:
+  "Early.REC.NREM - Early.REC.NREM.Match = 0": "REC - Match"
+  "Early.REC.NREM - Early.BSL.NREM = 0": "REC - Early BSL"
+  "Early.REC.NREM - Late.REC.NREM = 0": "Early - Late REC"
+  "Early.BSL.NREM - Early.REC.NREM.Match = 0": "E.BSL - E.Match"
+  "Late.NOD.Wake - Early.NOD.Wake = 0": "Late - Early SD"
+
+# Each entry is [response_variable, dataset, condition_set, model]
+entries:
+  # median_duration
+  - [median_duration, llas, six, crossed_interaction_weighted]
+  - [median_duration, clas, nrem, crossed_interaction]
+  - [median_duration, clas, wake, crossed_interaction]
+  - [median_duration, blas, nrem, crossed_interaction]
+
+  # median_median_duration
+  - [median_median_duration, llas, six, crossed_interaction_weighted]
+  - [median_median_duration, clas, nrem, crossed_interaction]
+  - [median_median_duration, clas, wake, crossed_interaction]
+  - [median_median_duration, blas, nrem, crossed_interaction]
+
+  # median_span
+  - [median_span, llas, six, crossed_interaction_weighted]
+  - [median_span, clas, nrem, crossed_interaction]
+  - [median_span, clas, wake, crossed_interaction]
+
+  # median_area
+  - [median_area, llas, six, crossed_interaction_weighted]
+  - [median_area, clas, nrem, crossed_interaction]
+  - [median_area, clas, wake, crossed_interaction]
+
+  # rate
+  - [rate, llas, nrem, crossed_interaction]
+  - [rate, llas, wake, crossed_interaction]
+  - [rate, clas, nrem, crossed_interaction]
+  - [rate, clas, wake, crossed_interaction]
+  - [rate, blas, nrem, crossed_interaction]
+  - [rate, blas, wake, crossed_interaction]
+
+  # total_area_norm
+  - [total_area_norm, llas, nrem, crossed_interaction]
+  - [total_area_norm, llas, wake, crossed_interaction]
+  - [total_area_norm, clas, nrem, crossed_interaction]
+  - [total_area_norm, clas, wake, crossed_interaction]
+  - [total_area_norm, blas, nrem, crossed_interaction]
+  - [total_area_norm, blas, wake, crossed_interaction]
+
+  # median_median_trace
+  - [median_median_trace, llas, six, crossed_interaction]
+  - [median_median_trace, clas, six, crossed_interaction]
+  - [median_median_trace, blas, nrem, crossed_interaction]
+
+  # median_mad_trace
+  - [median_mad_trace, llas, six, crossed_interaction]
+  - [median_mad_trace, clas, six, crossed_interaction]
+  - [median_mad_trace, blas, nrem, crossed_interaction]
+
+  # median_abs_onset_slope
+  - [median_abs_onset_slope, llas, six, crossed_interaction_log]
+  - [median_abs_onset_slope, clas, six, crossed_interaction_log]
+  - [median_abs_onset_slope, blas, nrem, crossed_interaction]
+
+  # median_abs_offset_slope
+  - [median_abs_offset_slope, llas, nrem, crossed_interaction]
+  - [median_abs_offset_slope, llas, wake, crossed_interaction]
+  - [median_abs_offset_slope, clas, six, crossed_interaction_log]
+  - [median_abs_offset_slope, blas, nrem, crossed_interaction]
+
+  # median_onset_jitter
+  - [median_onset_jitter, llas, six, crossed_interaction_weighted]
+  - [median_onset_jitter, clas, six, crossed_interaction_weighted]
+  - [median_onset_jitter, blas, nrem, crossed_interaction]
+
+  # median_offset_jitter
+  - [median_offset_jitter, llas, six, crossed_interaction_weighted]
+  - [median_offset_jitter, clas, six, crossed_interaction]
+  - [median_offset_jitter, blas, nrem, crossed_interaction]

@@ -1,0 +1,45 @@
+# Plot config for plot_results.py: band-power condition homeostasis.
+#
+# Draws the same six-condition violins with significance bars as the OFF
+# measures, from the separable bandpower pipeline results in _output_bandpower/.
+# Paths are relative to the r-offp/ root directory.
+
+results_dir: _output_bandpower
+data_dir: inst/extdata
+config: config/bandpower_homeostasis.yaml
+output_dir: _output_bandpower/figures
+
+# pubplots destination for figure styling/scaling
+destination: figma
+
+# Short x-axis tick labels for conditions
+condition_tick_labels:
+  Early.BSL.NREM: "E.BSL"
+  Early.REC.NREM.Match: "E.Match"
+  Early.REC.NREM: "E.REC"
+  Late.REC.NREM: "L.REC"
+  Early.NOD.Wake: "E.NOD.Wake"
+  Late.NOD.Wake: "L.NOD.Wake"
+
+# Significance bar styling
+significance:
+  alpha: 0.05
+  bar_height: 0.02        # fraction of y-range
+  bar_gap: 0.015           # fraction of y-range
+  tip_length: 0.01         # fraction of y-range
+  significant_linewidth: 1.5
+  significant_color: "black"
+  nonsignificant_linewidth: 0.5
+  nonsignificant_color: "0.7"
+
+# Each entry is [response_variable, dataset, condition_set, model].
+# The `six` set draws both NREM and wake panels from one fit (the six-condition
+# violin, matching the OFF measures); nrem/wake draw a single focused panel.
+entries:
+  - [mean_zlog_delta, bandpower, six, crossed_interaction]
+  - [mean_zlog_delta, bandpower, nrem, crossed_interaction]
+  - [mean_zlog_delta, bandpower, wake, crossed_interaction]
+  - [mean_zlog_eta, bandpower, six, crossed_interaction]
+  - [mean_zlog_eta, bandpower, six, crossed_interaction_weighted]
+  - [mean_zlog_eta, bandpower, nrem, crossed_interaction]
+  - [mean_zlog_eta, bandpower, wake, crossed_interaction]

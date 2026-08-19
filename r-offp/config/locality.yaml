@@ -1,0 +1,221 @@
+# Locality (Local vs Overlapping) analysis config.
+#
+# A self-contained companion to cx_homeostasis.yaml.
+# It drives the locality pipeline (R/locality_analysis.R) and is consumed only by
+# scripts/run_locality_analysis.R and scripts/run_all_locality_analyses.R, which
+# write to the separate _output_locality/ root. Delete this file (plus the
+# locality R files, scripts, and _output_locality/) to remove the feature
+# entirely; nothing here affects the layer-agnostic analyses.
+#
+# Datasets are produced by cnpix_local_sleep's `off-analysis export-locality-offs` (LLAS
+# only, matching the notebook figures). Three questions:
+#   request 1: condition contrasts on `mean_overlap_degree` (the overlap_degree
+#              block; routed through run_cx_homeostasis_analysis).
+#   request 2: Local vs Overlapping within each statistical condition + the
+#              condition x overlap_status interaction (per-condition data).
+#   request 3: Local vs Overlapping within whole-recording NREM / Wake + the
+#              state x overlap_status interaction (full48h whole-recording data).
+
+# Local-vs-Overlapping posthoc contrast (Local is the factor reference level).
+locality_contrast: "Overlapping - Local = 0"
+
+# Request 2: the six statistical conditions (single-condition fits, analysis kind
+# `per_condition`, one fit each).
+per_condition_conditions:
+  - Early.BSL.NREM
+  - Early.REC.NREM.Match
+  - Early.NOD.Wake
+  - Late.NOD.Wake
+  - Early.REC.NREM
+  - Late.REC.NREM
+
+# Condition windows for the request-2 interaction fits (pooled conditions).
+condition_windows:
+  six:
+    conditions:
+      - Early.BSL.NREM
+      - Early.REC.NREM.Match
+      - Early.NOD.Wake
+      - Late.NOD.Wake
+      - Early.REC.NREM
+      - Late.REC.NREM
+  nrem:
+    conditions: [Early.BSL.NREM, Early.REC.NREM.Match, Early.REC.NREM, Late.REC.NREM]
+  wake:
+    conditions: [Early.NOD.Wake, Late.NOD.Wake]
+
+# Request 3: whole-recording coarse states (single-state fits, analysis kind
+# `state`, one fit each) and the pooled both-states window for the interaction.
+states: [NREM, Wake]
+
+# Condition/state contrasts for the interaction (difference-in-differences),
+# duplicated from cx_homeostasis condition_sets so each locality interaction
+# reuses the same contrasts the layer-agnostic analysis tested.
+interaction_posthocs:
+  six:
+    - "Early.REC.NREM - Early.REC.NREM.Match = 0"
+    - "Early.REC.NREM - Early.BSL.NREM = 0"
+    - "Early.REC.NREM - Late.REC.NREM = 0"
+    - "Early.BSL.NREM - Early.REC.NREM.Match = 0"
+    - "Late.NOD.Wake - Early.NOD.Wake = 0"
+  nrem:
+    - "Early.REC.NREM - Early.REC.NREM.Match = 0"
+    - "Early.REC.NREM - Early.BSL.NREM = 0"
+    - "Early.REC.NREM - Late.REC.NREM = 0"
+    - "Early.BSL.NREM - Early.REC.NREM.Match = 0"
+  wake:
+    - "Late.NOD.Wake - Early.NOD.Wake = 0"
+  state:
+    - "NREM - Wake = 0"
+
+# Request 1: condition main-effect on the mean number of overlapping structures.
+# Routed through run_cx_homeostasis_analysis (ordinary `condition` fixed effect)
+# on the summarized_locality_overlap_offs.parquet data.
+#
+# Like the cx_homeostasis.yaml response variables, `models` is a LIST: each model
+# is fit separately so the diagnostics (residuals / QQ / violins under
+# _output_locality/.../mean_overlap_degree/<model_name>/figures/) can be compared
+# to pick the best-fitting model. Comment out the ones you reject.
+overlap_degree:
+  response_variable: mean_overlap_degree
+  conditions:
+    - Early.BSL.NREM
+    - Early.REC.NREM.Match
+    - Early.NOD.Wake
+    - Late.NOD.Wake
+    - Early.REC.NREM
+    - Late.REC.NREM
+  posthocs:
+    - "Early.REC.NREM - Early.REC.NREM.Match = 0"
+    - "Early.REC.NREM - Early.BSL.NREM = 0"
+    - "Early.REC.NREM - Late.REC.NREM = 0"
+    - "Early.BSL.NREM - Early.REC.NREM.Match = 0"
+    - "Late.NOD.Wake - Early.NOD.Wake = 0"
+  models:
+    #- name: crossed_interaction # boundary effect
+      #fe_terms: [condition]
+      #re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+      #weighted: false
+    #- name: crossed_interaction_weighted # boundary effect
+      #fe_terms: [condition]
+      #re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+      #weighted: true
+    #- name: crossed_interaction_log # data contain zeros
+      #fe_terms: [condition]
+      #re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+      #weighted: false
+      #transform: log
+    - name: crossed_interaction_sqrt # some homeoscedasticity, but best
+      fe_terms: [condition]
+      re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+      weighted: false
+      transform: sqrt
+    #- name: crossed_interaction_weighted_log # contains zeros
+      #fe_terms: [condition]
+      #re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+      #weighted: true
+      #transform: log
+    #- name: crossed_interaction_weighted_sqrt # No improvement over plain sqrt
+      #fe_terms: [condition]
+      #re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+      #weighted: true
+      #transform: sqrt
+
+# Models for requests 2 & 3. Local is the reference overlap status. Local and
+# Overlapping are paired within subject:structure[:condition].
+model_defaults:
+  locality_paired: &locality_paired          # req 2 (single condition) / req 3 (single state)
+    name: locality_paired
+    fe_terms: [overlap_status]
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: false
+  locality_interaction: &locality_interaction       # req 2 / req 3 interaction (OLS)
+    name: locality_interaction
+    fe_terms: [condition, overlap_status]   # descriptive only; custom fit path
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: false
+  # Heteroscedasticity-robust variant: inverse cell-variance (WLS) weights per
+  # condition x overlap_status cell. The pooled interaction assumes one residual
+  # variance across all cells, which the OLS RVF/QQ plots show is violated when a
+  # window mixes high-variance (NREM) and low-variance (Wake) cells; weighting
+  # restores per-cell calibration of the simple effects.
+  locality_interaction_weighted: &locality_interaction_weighted
+    name: locality_interaction_weighted
+    fe_terms: [condition, overlap_status]
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: true
+  # Response-transform variants of the pooled interaction (log / sqrt, crossed
+  # with OLS / WLS). Weighting fixes heteroscedasticity but the OLS/WLS QQ plots
+  # still show heavy upper tails / positive skew; a concave transform compresses
+  # the tail. Each is fit on the `six` window so the six diagnostics can be
+  # compared to pick the best-behaved residuals. (median_duration/span/area are
+  # strictly positive, so `log` is valid here, unlike mean_overlap_degree.)
+  locality_interaction_log: &locality_interaction_log
+    name: locality_interaction_log
+    fe_terms: [condition, overlap_status]
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: false
+    transform: log
+  locality_interaction_sqrt: &locality_interaction_sqrt
+    name: locality_interaction_sqrt
+    fe_terms: [condition, overlap_status]
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: false
+    transform: sqrt
+  locality_interaction_weighted_log: &locality_interaction_weighted_log
+    name: locality_interaction_weighted_log
+    fe_terms: [condition, overlap_status]
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: true
+    transform: log
+  locality_interaction_weighted_sqrt: &locality_interaction_weighted_sqrt
+    name: locality_interaction_weighted_sqrt
+    fe_terms: [condition, overlap_status]
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: true
+    transform: sqrt
+
+# Shared analysis list applied to every measure (requests 2 & 3). Each interaction
+# window is fit both OLS (locality_interaction) and weighted
+# (locality_interaction_weighted) so their diagnostics can be compared. The `six`
+# window additionally gets the log/sqrt transform variants (the model under active
+# residual-diagnostic comparison).
+analyses_all: &analyses_all
+  #- {kind: per_condition, model: *locality_paired}                        # req 2 main
+  #- {kind: interaction, condition_set: six, model: *locality_interaction} # req 2 interaction
+  #- {kind: interaction, condition_set: six, model: *locality_interaction_weighted}
+  #- {kind: interaction, condition_set: six, model: *locality_interaction_log}
+  #- {kind: interaction, condition_set: six, model: *locality_interaction_sqrt}
+  - {kind: interaction, condition_set: six, model: *locality_interaction_weighted_log}
+  #- {kind: interaction, condition_set: six, model: *locality_interaction_weighted_sqrt}
+  #- {kind: interaction, condition_set: nrem, model: *locality_interaction}
+  #- {kind: interaction, condition_set: nrem, model: *locality_interaction_weighted}
+  #- {kind: interaction, condition_set: wake, model: *locality_interaction}
+  #- {kind: interaction, condition_set: wake, model: *locality_interaction_weighted}
+  - {kind: state, model: *locality_paired}                                # req 3 main (NREM, Wake)
+  - {kind: state_interaction, condition_set: state, model: *locality_interaction}  # req 3 interaction
+  - {kind: state_interaction, condition_set: state, model: *locality_interaction_weighted}
+
+# Measures = the plot-4b panels (per-group median of the per-OFF column).
+datasets:
+  llas:
+    response_variables:
+      - {response_variable: median_duration, analyses: *analyses_all}
+      - {response_variable: median_span, analyses: *analyses_all}
+      - {response_variable: median_area, analyses: *analyses_all}
+
+# For summarize_results.py reuse on the main-effect (Local-vs-Overlapping)
+# results: each main-effect result records its analysis kind in the
+# `condition_set` slot, and the only posthoc is the Overlapping-vs-Local
+# contrast. The R scripts ignore this block. (Interaction results have a
+# different JSON shape and are not summarized by summarize_results.py; read their
+# summary.txt / results.json.)
+condition_sets:
+  cond-Early.BSL.NREM: {posthocs: ["Overlapping - Local = 0"]}
+  cond-Early.REC.NREM.Match: {posthocs: ["Overlapping - Local = 0"]}
+  cond-Early.NOD.Wake: {posthocs: ["Overlapping - Local = 0"]}
+  cond-Late.NOD.Wake: {posthocs: ["Overlapping - Local = 0"]}
+  cond-Early.REC.NREM: {posthocs: ["Overlapping - Local = 0"]}
+  cond-Late.REC.NREM: {posthocs: ["Overlapping - Local = 0"]}
+  state-NREM: {posthocs: ["Overlapping - Local = 0"]}
+  state-Wake: {posthocs: ["Overlapping - Local = 0"]}

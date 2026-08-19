@@ -1,0 +1,16 @@
+check,kind,description,max_abs_error_or_violations,tolerance,passed,k_groups
+1,max_abs_error,beta_B == joint coefficient on x2 (FWL),1.27675647831893e-15,1e-10,True,29
+2,max_abs_error,beta_A / beta_B == 1 - r12^2,2.6645352591003757e-15,1e-10,True,29
+3,violations,sign(beta_A) == sign(beta_B) == sign(beta_C),0.0,0.0,True,29
+4,max_abs_error,"corr(e_x2, x1) == 0",1.5522422276747437e-14,1e-10,True,29
+5,max_abs_error,"corr(e_y, x1) == 0",4.83189524614699e-16,1e-10,True,29
+6,max_abs_error,beta_C == independently computed sr,3.774758283725532e-15,1e-10,True,29
+7,max_abs_error,beta_C / beta_B == sqrt(1 - r12^2),2.220446049250313e-15,1e-10,True,29
+8,max_abs_error,"beta_C^2 == R2_joint - corr(y, x1)^2  (unique variance)",1.0269562977782698e-15,1e-10,True,29
+9,violations,abs(beta_A) <= abs(beta_C) <= abs(beta_B),0.0,0.0,True,29
+2b,max_abs_error,beta_A == beta_B * (1 - r12^2)  [ratio-free form],1.1657341758564144e-15,1e-10,True,29
+7b,max_abs_error,beta_C == beta_B * sqrt(1 - r12^2)  [ratio-free form],4.440892098500626e-16,1e-10,True,29
+1m,max_abs_error,mirror: beta_B_medl == joint coefficient on x1,6.38378239159465e-16,1e-10,True,29
+2m,max_abs_error,mirror: beta_A_medl / beta_B_medl == 1 - r12^2,4.551914400963142e-15,1e-10,True,29
+7m,max_abs_error,mirror: beta_C_medl / beta_B_medl == sqrt(1 - r12^2),1.887379141862766e-15,1e-10,True,29
+8m,max_abs_error,"mirror: beta_C_medl^2 == R2_joint - corr(y, x2)^2",6.626643678231403e-16,1e-10,True,29

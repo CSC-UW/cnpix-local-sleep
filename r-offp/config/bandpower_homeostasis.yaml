@@ -1,0 +1,85 @@
+# Homeostasis analysis of per-condition instantaneous bipolar band-power means.
+#
+# Separable companion to config/cx_homeostasis.yaml. The response variables are
+# NOT OFF properties: each is the mean of the z-scored log10 instantaneous
+# bipolar band power (the same power that annotates OFF periods), averaged per
+# (subject, probe, structure, condition). The data are exported by cnpix_local_sleep's
+# `off-analysis export-bandpower-condition-means` into
+# summarized_full48h_bandpower_offs.parquet and fit through the identical
+# condition-homeostasis model as the OFF measures (main effect of condition with
+# crossed subject/structure random effects), so the six-condition violins and
+# significance bars render in exactly the same style.
+#
+# Run: Rscript scripts/run_all_bandpower_analyses.R
+# Plot: python plot_results.py config/plots/bandpower_homeostasis.yaml
+# Summarize: python summarize_results.py config/summary_tables/bandpower_summary.yaml
+#
+# Model definitions and condition sets are duplicated (not cross-referenced) from
+# cx_homeostasis.yaml because YAML anchors are file-local; keep the two in sync.
+
+model_defaults:
+  crossed_interaction: &crossed_interaction
+    name: crossed_interaction
+    fe_terms: [condition]
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: false
+  crossed_interaction_weighted: &crossed_interaction_weighted
+    name: crossed_interaction_weighted
+    fe_terms: [condition]
+    re_terms: ["(1 | subject)", "(1 | structure)", "(1 | subject:structure)"]
+    weighted: true
+
+condition_sets:
+  six: &cs_six
+    name: six
+    conditions:
+      - Early.BSL.NREM
+      - Early.REC.NREM.Match
+      - Early.NOD.Wake
+      - Late.NOD.Wake
+      - Early.REC.NREM
+      - Late.REC.NREM
+    posthocs:
+      - "Early.REC.NREM - Early.REC.NREM.Match = 0"
+      - "Early.REC.NREM - Early.BSL.NREM = 0"
+      - "Early.REC.NREM - Late.REC.NREM = 0"
+      - "Early.BSL.NREM - Early.REC.NREM.Match = 0"
+      - "Late.NOD.Wake - Early.NOD.Wake = 0"
+  nrem: &cs_nrem
+    name: nrem
+    conditions:
+      - Early.BSL.NREM
+      - Early.REC.NREM.Match
+      - Early.REC.NREM
+      - Late.REC.NREM
+    posthocs:
+      - "Early.REC.NREM - Early.REC.NREM.Match = 0"
+      - "Early.REC.NREM - Early.BSL.NREM = 0"
+      - "Early.REC.NREM - Late.REC.NREM = 0"
+      - "Early.BSL.NREM - Early.REC.NREM.Match = 0"
+  wake: &cs_wake
+    name: wake
+    conditions:
+      - Early.NOD.Wake
+      - Late.NOD.Wake
+    posthocs:
+      - "Late.NOD.Wake - Early.NOD.Wake = 0"
+
+# Single dataset: the band-power condition means (no llas/clas/blas split; the
+# measure is a property of the recording, not of the OFFs).
+datasets:
+  bandpower:
+    response_variables:
+      - title: Mean zlog delta power (au)
+        response_variable: mean_zlog_delta
+        analyses:
+          - {condition_set: *cs_six, model: *crossed_interaction}
+          - {condition_set: *cs_nrem, model: *crossed_interaction}
+          - {condition_set: *cs_wake, model: *crossed_interaction}
+      - title: Mean zlog eta power (au)
+        response_variable: mean_zlog_eta
+        analyses:
+          - {condition_set: *cs_six, model: *crossed_interaction}
+          - {condition_set: *cs_six, model: *crossed_interaction_weighted}
+          - {condition_set: *cs_nrem, model: *crossed_interaction}
+          - {condition_set: *cs_wake, model: *crossed_interaction}

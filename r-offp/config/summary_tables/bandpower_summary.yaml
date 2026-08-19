@@ -1,0 +1,26 @@
+# Summary table config for summarize_results.py: band-power condition homeostasis.
+#
+# Reads _output_bandpower/ results and emits a compact
+# markdown+CSV table of main-effect p/f2 and posthoc contrasts.
+# Paths are relative to the r-offp/ root directory.
+
+results_dir: _output_bandpower
+config: config/bandpower_homeostasis.yaml
+
+# Short labels for posthoc contrast column headers
+contrast_labels:
+  "Early.REC.NREM - Early.REC.NREM.Match = 0": "REC - Match"
+  "Early.REC.NREM - Early.BSL.NREM = 0": "REC - Early BSL"
+  "Early.REC.NREM - Late.REC.NREM = 0": "Early - Late REC"
+  "Early.BSL.NREM - Early.REC.NREM.Match = 0": "E.BSL - E.Match"
+  "Late.NOD.Wake - Early.NOD.Wake = 0": "Late - Early SD"
+
+# Each entry is [response_variable, dataset, condition_set, model]
+entries:
+  - [mean_zlog_delta, bandpower, six, crossed_interaction]
+  - [mean_zlog_delta, bandpower, nrem, crossed_interaction]
+  - [mean_zlog_delta, bandpower, wake, crossed_interaction]
+  - [mean_zlog_eta, bandpower, six, crossed_interaction]
+  - [mean_zlog_eta, bandpower, six, crossed_interaction_weighted]
+  - [mean_zlog_eta, bandpower, nrem, crossed_interaction]
+  - [mean_zlog_eta, bandpower, wake, crossed_interaction]

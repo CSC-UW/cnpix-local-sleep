@@ -1,0 +1,55 @@
+# Manuscript Supplementary Table S3a: OFF-period locality / globality (Fig. 4).
+#
+# Consumed by manuscript_tables.py (table_type: locality). Contrasts are rows.
+# Mirrors the statistical claims of Fig. 4 (All OFFs only):
+#   Fig. 4b: OFF globality changes across conditions (overlap degree ~ condition).
+#   Fig. 4c: observed cross-structure overlap exceeds a windowed-shift null.
+#   Fig. 4g: overlapping OFF periods are larger than local ones, and the gap
+#             widens with sleep pressure (condition × overlap interaction:
+#             per-condition simple effects + difference-in-differences).
+# Fig. 4d-f (size / overlap-degree Spearman, raw + excess) are covered by
+# Supplementary Table S3b (cnpix_local_sleep export; see manuscript_s3b_size_globality.yaml).
+
+table_type: locality
+output_dir: _output_manuscript
+sheet: "S3a Locality"
+
+title: "Supplementary Table S3a. OFF-period locality and globality across conditions."
+caption: >-
+  OFF-period globality (All OFFs; n = 21 unique subject-structure pairs from
+  7 subjects and 12 structures). Top: the mean cross-structure overlap degree (number
+  of other simultaneously recorded structures with a temporally overlapping OFF) as an
+  LME across the six conditions (Fig. 4b), and the same overlap tested against a
+  windowed-shift null that preserves each structure's OFF count, duration distribution
+  and within-bout density while scrambling fine cross-structure alignment (Fig. 4c;
+  observed - null). Bottom: overlapping (degree >= 1) versus local (degree 0) OFF area,
+  from a condition × overlap-status interaction model (Fig. 4g): the per-condition
+  simple effects (Overlapping - Local) and the difference-in-differences ("gap Δ")
+  testing whether that gap varies across conditions. Each post-hoc cell gives the
+  single-step adjusted, two-sided p (stars: *** <0.001, ** <0.01, * <0.05), the
+  contrast estimate with its 95% CI (in the Units column; some models are fit on a
+  transformed scale, noted in Units), and the Cohen's-d analogue. Omnibus = LRT with
+  Cohen's f².
+
+sections:
+- title: "OFF globality across conditions (Fig. 4b) and versus chance (Fig. 4c)"
+  fits:
+    - results_dir: _output_locality
+      path: "llas/overlap_degree/mean_overlap_degree/crossed_interaction_sqrt"
+      label: "Mean overlap degree ~ condition"
+      kind: main_effect
+      units: "√degree"
+    - results_dir: _output_excess_globality
+      path: "llas/state-NREM/value/excess_paired"
+      label: "Observed vs windowed-null overlap (NREM)"
+      kind: main_effect
+      units: "degree"
+
+- title: "Overlapping vs local OFF area by condition (Fig. 4g)"
+  fits:
+    - results_dir: _output_locality
+      path: "llas/interaction-six/median_area/locality_interaction_weighted_log"
+      label: "Overlapping - Local OFF area (× condition)"
+      kind: interaction
+      blocks: [simple, did]
+      units: "log µm·s"

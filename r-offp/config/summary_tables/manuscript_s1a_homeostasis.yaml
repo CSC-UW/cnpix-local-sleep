@@ -1,0 +1,139 @@
+# Manuscript Supplementary Table S1a: homeostasis of OFF-period properties.
+#
+# Consumed by manuscript_tables.py. Reports ONLY the three OFF partitions in the
+# manuscript: All OFFs = llas (relaxed), Medium + Large = clas (stringent),
+# Small = llas_exclusive (relaxed but not stringent). No BLAS.
+#
+# SCOPE (from Results / Fig 2g, Fig 2f, Supplementary Fig 2): rate, duration,
+# span, per-OFF area, total OFFness, residual MUA, delta power (Fig 2f), and
+# size-adjusted within-structure ON-OFF transition asynchrony (Supplementary Fig 2).
+# Onset/offset slope, onset/offset jitter, the MAD-trace, and eta power are out of
+# scope, as are the UNADJUSTED mean_{onset,offset}_mad fits: the size-adjusted
+# versions supersede them (see the report referenced under property_units), so
+# reporting both would put a replaced analysis in the supplement.
+#
+# Duration is the median-of-medians (median_median_duration) for All/Medium+Large;
+# Small uses the mean-of-median analog (mean_median_duration), since small OFFs are
+# discretized (Methods). Each entry is [response_variable, dataset, condition_set,
+# model], reusing the per-RV model chosen in config/cx_homeostasis.yaml.
+
+results_dir: _output
+config: config/cx_homeostasis.yaml
+output_dir: _output_manuscript
+sheet: "S1a Homeostasis"
+
+title: "Supplementary Table S1a. Homeostatic regulation of OFF-period properties and cortical delta power across the six experimental conditions."
+caption: >-
+  Linear mixed-effects models across the six one-hour conditions (n = 29 unique
+  subject-structure pairs from 12 structures and 15 rats), fit separately for All
+  OFFs (relaxed criterion), Medium + Large OFFs (stringent criterion) and Small OFFs
+  (relaxed but not stringent), together with cortical delta power. Each post-hoc cell
+  gives the single-step multiplicity-adjusted, two-sided p value with significance
+  stars (*** p < 0.001, ** p < 0.01, * p < 0.05), the contrast estimate with its 95%
+  family-wise confidence interval (in the units of the Units column), and the
+  Cohen's-d analogue; the main-effect cell gives the omnibus likelihood-ratio test
+  of condition with Cohen's f². Aggregate measures (rate, total OFFness) are fit as
+  independent NREM and Wake models. Models: lme4::lmer, ML; post-hoc: multcomp::glht
+  single-step. — a post-hoc not performed (omnibus n.s.); N/A a contrast undefined
+  for that model's condition set.
+
+# Two-line, plain-language contrast column headers.
+contrast_labels:
+  "Early.REC.NREM - Early.REC.NREM.Match = 0": "NREM rebound\n(early recovery - late baseline)"
+  "Early.REC.NREM - Early.BSL.NREM = 0": "NREM surge\n(early recovery - early baseline)"
+  "Early.REC.NREM - Late.REC.NREM = 0": "REC decline\n(early recovery - late recovery)"
+  "Early.BSL.NREM - Early.REC.NREM.Match = 0": "BSL decline\n(early baseline - late baseline)"
+  "Late.NOD.Wake - Early.NOD.Wake = 0": "SD incline\n(late SD - early SD)"
+
+partition_labels:
+  llas: "All OFFs"
+  clas: "Medium + Large"
+  llas_exclusive: "Small OFFs"
+  bandpower: "Cortical LFP"
+
+set_labels:
+  six: "—"
+  nrem: "NREM"
+  wake: "Wake"
+
+# Merge same-concept measures across partitions into one property row-block.
+property_labels:
+  median_median_duration: "OFF duration"
+  mean_median_duration: "OFF duration"
+  median_span: "OFF span"
+  mean_span: "OFF span"
+  median_area: "OFF area (per-OFF)"
+  rate: "OFF rate"
+  total_area_norm: "Total OFFness"
+  median_median_trace: "Residual MUA"
+  adj_mean_onset_mad: "ON-transition asynchrony (size-adjusted)"
+  adj_mean_offset_mad: "OFF-transition asynchrony (size-adjusted)"
+  mean_zlog_delta: "Cortical delta power"
+
+# Units of the contrast estimate (response scale), by response variable.
+property_units:
+  median_median_duration: "s"
+  mean_median_duration: "s"
+  median_span: "µm"
+  mean_span: "µm"
+  median_area: "µm·s"
+  rate: "Hz"
+  total_area_norm: "a.u."
+  median_median_trace: "µV"
+  adj_mean_onset_mad: "ms"
+  adj_mean_offset_mad: "ms"
+  mean_zlog_delta: "z-log"
+
+sections:
+- title: "OFF-period properties (Fig. 2g)"
+  entries:
+  # --- OFF duration (median-of-medians; Small uses mean-of-median) --------
+  - [median_median_duration, llas, six, crossed_interaction_weighted]
+  - [median_median_duration, clas, nrem, crossed_interaction]
+  - [median_median_duration, clas, wake, crossed_interaction]
+  - [mean_median_duration, llas_exclusive, six, crossed_interaction]
+  # --- OFF span ----------------------------------------------------------
+  - [median_span, llas, six, crossed_interaction_weighted]
+  - [median_span, clas, nrem, crossed_interaction]
+  - [median_span, clas, wake, crossed_interaction]
+  - [mean_span, llas_exclusive, nrem, crossed_interaction]
+  - [mean_span, llas_exclusive, wake, crossed_interaction]
+  # --- OFF area (per-OFF) ------------------------------------------------
+  - [median_area, llas, six, crossed_interaction_weighted]
+  - [median_area, clas, nrem, crossed_interaction]
+  - [median_area, clas, wake, crossed_interaction]
+  - [median_area, llas_exclusive, nrem, crossed_interaction]
+  - [median_area, llas_exclusive, wake, crossed_interaction]
+  # --- OFF rate ----------------------------------------------------------
+  - [rate, llas, nrem, crossed_interaction]
+  - [rate, llas, wake, crossed_interaction]
+  - [rate, clas, nrem, crossed_interaction]
+  - [rate, clas, wake, crossed_interaction]
+  - [rate, llas_exclusive, nrem, crossed_interaction]
+  - [rate, llas_exclusive, wake, crossed_interaction]
+  # --- Total OFFness -----------------------------------------------------
+  - [total_area_norm, llas, nrem, crossed_interaction]
+  - [total_area_norm, llas, wake, crossed_interaction]
+  - [total_area_norm, clas, nrem, crossed_interaction]
+  - [total_area_norm, clas, wake, crossed_interaction]
+  - [total_area_norm, llas_exclusive, nrem, crossed_interaction]
+  - [total_area_norm, llas_exclusive, wake, crossed_interaction]
+  # --- Residual MUA (median-of-medians trace) ----------------------------
+  - [median_median_trace, llas, six, crossed_interaction]
+  - [median_median_trace, clas, six, crossed_interaction]
+  - [median_median_trace, llas_exclusive, six, crossed_interaction]
+
+- title: "Cortical delta power (Fig. 2f)"
+  results_dir: _output_bandpower
+  config: config/bandpower_homeostasis.yaml
+  entries:
+  - [mean_zlog_delta, bandpower, six, crossed_interaction]
+
+- title: "Within-structure ON-OFF transition asynchrony (Supplementary Fig. 2)"
+  entries:
+  # Medium+Large only: in the Small class 32% of events are hard-floored at
+  # MAD == 0, and All OFFs is a condition-varying mixture of the two.
+  - [adj_mean_onset_mad, clas, nrem, crossed_interaction]
+  - [adj_mean_onset_mad, clas, wake, crossed_interaction]
+  - [adj_mean_offset_mad, clas, nrem, crossed_interaction]
+  - [adj_mean_offset_mad, clas, wake, crossed_interaction]

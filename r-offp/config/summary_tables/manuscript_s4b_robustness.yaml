@@ -1,0 +1,40 @@
+# Manuscript Supplementary Table S4b: robustness of the SD -> NREM-rebound slopes.
+#
+# Consumed by manuscript_tables.py (table_type: correlation_robustness). Reads
+# _output_correlations/influence_diagnostics/influence_summary.csv, written
+# by scripts/run_correlation_influence_diagnostics.R.
+#
+# Supports the Results claims that the negative rate correlation was robust:
+# "no single animal accounted for it, though it weakened when the two animals with
+# the most OFFs during SD were dropped together (but survived dropping the other
+# 104/105 possible subject pairs)".
+#
+# The fit list, partition labels and predictor labels are inherited from S4a via
+# `entries_from`, so the two tables cannot drift apart.
+
+table_type: correlation_robustness
+results_dir: _output_correlations
+output_dir: _output_manuscript
+entries_from: manuscript_s4a_sd_rebound.yaml
+
+title: "Supplementary Table S4b. Leave-out and influence diagnostics for the sleep-deprivation to NREM-rebound slopes."
+caption: >-
+  Robustness of every slope in Supplementary Table S4a. Each fit was refit after
+  deleting, in turn, each subject, each cortical structure, each subject-structure
+  pair, every pair of subjects, and (for fits significant on the raw predictor)
+  every trio of subjects. Deletion columns give the number of refits whose
+  two-sided p < 0.05 verdict changed, out of the number of refits performed; 0
+  therefore means the verdict never changed. Leave-one-structure-out applies only
+  to models that include a by-structure random intercept. The leave-two-subjects
+  column counts subsets whose refit is significant, with the largest p over all
+  subsets; note that for a fit that is not significant to begin with, this counts
+  subsets that become significant. The final column refits after dropping the two
+  subjects with the largest Cook's distance; for the medium-and-large OFF-rate
+  model these are also the two subjects with the highest OFF rate during sleep
+  deprivation. Stars: *** <0.001, ** <0.01, * <0.05.
+
+models:
+  - {model: subject, label: "(1 | subject)"}
+  - {model: subject_structure, label: "+ (1 | structure)"}
+
+sheet: "S4b SD-rebound robustness"

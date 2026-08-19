@@ -1,0 +1,24 @@
+# Manuscript Supplementary Table S0: model & assumptions reference.
+#
+# Consumed by manuscript_tables.py (table_type: model_reference). One row per fit
+# in the S1a homeostasis config (reused via from_config): the response transform and
+# inverse-variance weighting chosen by residual diagnostics, the number of
+# observations, the fitted random-effect standard deviations (subject, structure,
+# subject×structure, residual). Documents the repeated-measures structure.
+
+table_type: model_reference
+results_dir: _output
+from_config: config/summary_tables/manuscript_s1a_homeostasis.yaml
+output_dir: _output_manuscript
+sheet: "S0 Models"
+
+title: "Supplementary Table S0. Mixed-model specifications and random-effect variance components."
+caption: >-
+  For each fit in Table S1a: the variance-stabilizing response transform and whether
+  inverse-variance weights were applied (both selected per response variable from
+  residual diagnostics), the number of observations (subject × structure × condition
+  cells), the fitted random-effect standard deviations for the crossed subject,
+  structure and subject × structure intercepts and for the residual. All models were
+  fit by maximum likelihood with lme4::lmer in R; the fixed effect is condition
+  (Table S1a), with crossed random intercepts (1 | subject) + (1 | structure) +
+  (1 | subject:structure).

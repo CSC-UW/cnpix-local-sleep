@@ -1,0 +1,8 @@
+Response,Dataset,Set,Model,Main effect,REC - Match,REC - Early BSL,Early - Late REC,E.BSL - E.Match,Late - Early SD
+mean_zlog_delta,BANDPOWER,six,crossed_interaction,p < 0.001 *** [f²=17.97],p < 0.001 *** [d=3.73] +,p < 0.001 *** [d=1.65] +,p < 0.001 *** [d=2.18] +,p < 0.001 *** [d=2.08] +,p = 0.999 [d=0.05] +
+mean_zlog_delta,BANDPOWER,nrem,crossed_interaction,p < 0.001 *** [f²=4.19],p < 0.001 *** [d=3.42] +,p < 0.001 *** [d=1.51] +,p < 0.001 *** [d=2.00] +,p < 0.001 *** [d=1.91] +,N/A
+mean_zlog_delta,BANDPOWER,wake,crossed_interaction,p=p = 0.697,N/A,N/A,N/A,N/A,—
+mean_zlog_eta,BANDPOWER,six,crossed_interaction,p < 0.001 *** [f²=18.07],p < 0.001 *** [d=3.78] +,p < 0.001 *** [d=1.38] +,p < 0.001 *** [d=2.52] +,p < 0.001 *** [d=2.40] +,p = 0.771 [d=0.25] +
+mean_zlog_eta,BANDPOWER,six,crossed_interaction_weighted,p < 0.001 *** [f²=18.37],p < 0.001 *** [d=0.83] +,p < 0.001 *** [d=0.30] +,p < 0.001 *** [d=0.55] +,p < 0.001 *** [d=0.53] +,p = 0.669 [d=0.05] +
+mean_zlog_eta,BANDPOWER,nrem,crossed_interaction,p < 0.001 *** [f²=3.78],p < 0.001 *** [d=3.44] +,p < 0.001 *** [d=1.26] +,p < 0.001 *** [d=2.30] +,p < 0.001 *** [d=2.19] +,N/A
+mean_zlog_eta,BANDPOWER,wake,crossed_interaction,p < 0.05 * [f²=0.16],N/A,N/A,N/A,N/A,p < 0.05 * [d=0.24] +

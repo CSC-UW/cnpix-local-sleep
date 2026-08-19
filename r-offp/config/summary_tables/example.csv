@@ -1,0 +1,4 @@
+Response,Dataset,Model,Main effect,REC - Match,REC - Early BSL,Early - Late REC,Late - Early SD
+median_duration,LLAS,crossed_interaction,1.6e-66 [f²=5.62],<1e-300 [d=1.64] +,4.1e-08 [d=0.91] +,1.1e-10 [d=1.05] +,0.064 [d=0.40] +
+median_duration,CLAS,crossed_interaction,2.2e-13 [f²=0.97],3.3e-16 [d=0.79] +,7.7e-12 [d=0.66] +,0.043 [d=0.23] +,N/A
+median_duration,BLAS,crossed_interaction,2.1e-06 [f²=0.39],0.142 [d=0.13] +,0.002 [d=0.24] +,0.097 [d=-0.14] −,N/A

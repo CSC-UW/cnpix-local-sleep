@@ -1,0 +1,70 @@
+# Plot config for plot_locality_results.py
+#
+# Generates violin plots with significance bars for the locality `overlap_degree`
+# analysis (request 1: mean number of overlapping cortical structures per
+# condition; the right subplot of cross_structure_3_condition_comparison.svg).
+# Paths are relative to the r-offp/ root.
+#
+# A removable companion to config/plots/cx_homeostasis.yaml. Delete this file
+# plus plot_locality_results.py to remove locality plotting entirely; nothing
+# here touches the layer-agnostic plotting.
+
+results_dir: _output_locality
+data_dir: inst/extdata
+config: config/locality.yaml
+output_dir: _output_locality/figures
+
+# The locality overlap-degree parquet does not follow the
+# summarized_<dataset>_offs pattern, so it is named explicitly.
+data_file: summarized_locality_overlap_offs.parquet
+
+# pubplots destination for figure styling/scaling.
+destination: figma
+
+# Short x-axis tick labels for conditions.
+condition_tick_labels:
+  Early.BSL.NREM: "E.BSL"
+  Early.REC.NREM.Match: "E.Match"
+  Early.REC.NREM: "E.REC"
+  Late.REC.NREM: "L.REC"
+  Early.NOD.Wake: "E.NOD.Wake"
+  Late.NOD.Wake: "L.NOD.Wake"
+
+# Significance bar styling (mirrors cx_homeostasis.yaml).
+significance:
+  alpha: 0.05
+  bar_height: 0.02        # fraction of y-range
+  bar_gap: 0.015          # fraction of y-range
+  tip_length: 0.01        # fraction of y-range
+  significant_linewidth: 1.5
+  significant_color: "black"
+  nonsignificant_linewidth: 0.5
+  nonsignificant_color: "0.7"
+
+# Each entry is [response_variable, dataset, analysis_kind, model]. analysis_kind
+# (overlap_degree) sits in the path slot plot_results.py reserves for the
+# condition set. Conditions + post-hoc contrasts are read from the
+# overlap_degree block of config/locality.yaml.
+#
+# One entry per fitted model so the significance bars (which DO differ across
+# models, e.g. the Late.NOD vs Early.NOD wake contrast) can be compared.
+# crossed_interaction_weighted is the current best-fitting model (only one whose
+# residuals are not significantly non-normal); the two `log` models are
+# inapplicable (mean_overlap_degree has zeros) and did not fit.
+entries:
+  - [mean_overlap_degree, llas, overlap_degree, crossed_interaction_sqrt]
+
+# Request 2: within-condition Local-vs-Overlapping violins (the notebook's
+# cross_structure_4b figure). Two dodged violins (Local, Overlapping) per
+# condition, with a per-condition significance bracket whose p-value is the
+# pooled interaction model's within-condition simple effect (interaction$simple
+# in interaction-<set>/<measure>/<model>/results.json). The six conditions are
+# read from condition_windows.six in config/locality.yaml (not re-listed here).
+local_vs_overlapping:
+  data_file: summarized_locality_per_condition_llas_offs.parquet
+  analysis_kind: interaction-six
+  entries:
+    # [measure, dataset, model]
+    - [median_duration, llas, locality_interaction_weighted_log]
+    - [median_span,     llas, locality_interaction_weighted_log]
+    - [median_area,     llas, locality_interaction_weighted_log]

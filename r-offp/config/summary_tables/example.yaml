@@ -1,0 +1,19 @@
+# Example summary table config for summarize_results.py
+#
+# Paths are relative to the r-offp/ root directory.
+
+results_dir: _output
+config: config/cx_homeostasis.yaml
+
+# Short labels for posthoc contrast column headers
+contrast_labels:
+  "Early.REC.NREM - Early.REC.NREM.Match = 0": "REC - Match"
+  "Early.REC.NREM - Early.BSL.NREM = 0": "REC - Early BSL"
+  "Early.REC.NREM - Late.REC.NREM = 0": "Early - Late REC"
+  "Late.NOD.Wake - Early.NOD.Wake = 0": "Late - Early SD"
+
+# Each entry is [response_variable, dataset, model]
+entries:
+  - [median_duration, llas, crossed_interaction]
+  - [median_duration, clas, crossed_interaction]
+  - [median_duration, blas, crossed_interaction]

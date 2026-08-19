@@ -1,0 +1,90 @@
+# NOD-activity vs NREM.Rebound correlation config.
+#
+# A self-contained companion to cx_homeostasis.yaml.
+# It drives R/correlation_analysis.R and is consumed only by
+# scripts/run_correlation_analysis.R and scripts/run_all_correlation_analyses.R,
+# which write to the separate _output_correlations/ root. Delete this file (plus
+# R/correlation_analysis.R, scripts/*correlation*.R, the
+# nod_rebound_correlation_*_offs.parquet extdata, and _output_correlations/) to
+# remove the feature entirely; nothing here affects the other analyses.
+#
+# Tests whether a whole-period NOD OFF metric predicts that same metric's
+# NREM.Rebound (Early.REC.NREM - Early.REC.NREM.Match), across (subject, probe,
+# structure) combos, in a linear mixed model that corrects the pseudoreplication
+# of the notebook's pooled Pearson correlation.
+
+# Predictor (x) conditions and the two conditions whose difference is the response
+# (y = NREM.Rebound). Must match cnpix_local_sleep's `export-nod-rebound-correlation`.
+#
+# `predictor_conditions` is a list: the whole analysis is run once per predictor,
+# and outputs are separated by predictor at the `.../<metric>/<predictor>/<model>/`
+# level, so the predictors never collide. `NOD` is the whole deprivation window
+# (Wake+NREM epochs); `NOD.Wake` is the same window restricted to Wake epochs
+# (dropping NREM intrusions/microsleeps). Both are exported into the same
+# correlation parquet by cnpix_local_sleep's `export-nod-rebound-correlation`.
+# (A scalar `predictor_condition:` is still honored for backward compatibility.)
+predictor_conditions:
+  - NOD
+  - NOD.Wake
+rebound_post: Early.REC.NREM
+rebound_baseline: Early.REC.NREM.Match
+
+# Model definitions = random-effects structures. `subject` is the headline
+# (single random intercept per subject, correcting the within-subject pooling).
+# `subject_structure` adds a crossed structure intercept, removing the
+# between-area co-gradient too (a stronger, within-area claim). The crossed
+# interaction (1 | subject:structure) is intentionally not included.
+model_defaults:
+  subject: &subject
+    name: subject
+    re_terms: ["(1 | subject)"]
+  subject_structure: &subject_structure
+    name: subject_structure
+    re_terms: ["(1 | subject)", "(1 | structure)"]
+
+# Both models are run for every metric.
+analyses_all: &analyses_all
+  - {model: *subject}
+  - {model: *subject_structure}
+
+# By default each metric is correlated against its OWN NREM.Rebound, per dataset
+# (predictor x and response y are the same metric).
+#
+# Optionally, a metric entry may set `response_metric:` to make y the
+# NREM.Rebound of a DIFFERENT quantity than the predictor x. Here that is used to
+# ask whether a NOD OFF property predicts the NREM.Rebound of cortical delta
+# power (`mean_zlog_delta`). When `response_metric` is set, y is sourced from the
+# band-power condition means (`summarized_full48h_bandpower_offs.parquet`, via
+# offp::load_bandpower_condition_means()) and joined to the NOD predictor x on
+# (subject, probe, structure). Outputs land under a combined metric segment
+# `<metric>__vs__<response_metric>/` so they never collide with the self-rebound
+# outputs and the diagnostic scripts' fixed-depth glob still matches. The
+# delta-power rebound is a full-cortical property independent of LAS filtering, so
+# y is identical across llas/clas/llas_exclusive; only the predictor x differs
+# by dataset.
+datasets:
+  llas:
+    metrics:
+      - {metric: total_area_norm, analyses: *analyses_all}
+      - {metric: rate, analyses: *analyses_all}
+      - {metric: total_area_norm, response_metric: mean_zlog_delta, analyses: *analyses_all}
+      - {metric: rate, response_metric: mean_zlog_delta, analyses: *analyses_all}
+  clas:
+    metrics:
+      - {metric: total_area_norm, analyses: *analyses_all}
+      - {metric: rate, analyses: *analyses_all}
+      - {metric: total_area_norm, response_metric: mean_zlog_delta, analyses: *analyses_all}
+      - {metric: rate, response_metric: mean_zlog_delta, analyses: *analyses_all}
+  #blas:
+    #metrics:
+      #- {metric: total_area_norm, analyses: *analyses_all}
+      #- {metric: rate, analyses: *analyses_all}
+  # llas_exclusive = llas & ~clas (OFFs admitted by the LLAS filter but rejected
+  # by CLAS, the adjacent-partition complement). Correlation input parquet from
+  # cnpix_local_sleep `export-nod-rebound-correlation --category llas_exclusive`.
+  llas_exclusive:
+    metrics:
+      - {metric: total_area_norm, analyses: *analyses_all}
+      - {metric: rate, analyses: *analyses_all}
+      - {metric: total_area_norm, response_metric: mean_zlog_delta, analyses: *analyses_all}
+      - {metric: rate, response_metric: mean_zlog_delta, analyses: *analyses_all}

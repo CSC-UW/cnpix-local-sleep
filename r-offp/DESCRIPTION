@@ -1,0 +1,47 @@
+Package: offp
+Title: Statistical Analysis Functions for Findlay et al. ("OFF project")
+Version: 0.0.0.9000
+Authors@R: 
+    person("Graham", "Findlay", , "gfindlay@wisc.edu", role = c("aut", "cre"))
+Description: Statistical analysis functions and data loading utilities for the
+    Findlay et al. manuscript on OFF periods and local sleep in wake.
+License: CC BY-NC-ND 4.0 + file LICENSE
+Encoding: UTF-8
+Language: en
+URL: https://github.com/CSC-UW/cnpix-local-sleep
+BugReports: https://github.com/CSC-UW/cnpix-local-sleep/issues
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends:
+    R (>= 4.1.0)
+Imports:
+    arrow,
+    assertthat,
+    dplyr,
+    fastDummies,
+    ggplot2,
+    here,
+    jsonlite,
+    lme4,
+    marginaleffects,
+    MASS,
+    modelbased,
+    multcomp,
+    RColorBrewer,
+    rlang,
+    rmarkdown
+Suggests:
+    devtools,
+    httpgd,
+    languageserver,
+    pak,
+    renv,
+    roxygen2,
+    testthat (>= 3.0.0),
+    usethis,
+    vscDebugger,
+    yaml
+Remotes:
+    nx10/httpgd,
+    ManuelHentschel/vscDebugger
+Config/testthat/edition: 3

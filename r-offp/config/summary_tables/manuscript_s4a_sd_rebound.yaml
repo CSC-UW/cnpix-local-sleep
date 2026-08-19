@@ -1,0 +1,79 @@
+# Manuscript Supplementary Table S4a: SD OFF expression predicts NREM rebound.
+#
+# Consumed by manuscript_tables.py (table_type: correlation_slope). Linear
+# mixed-model slope y ~ x + (1|subject): does an OFF metric accumulated over the
+# sleep-deprivation window predict its own subsequent NREM rebound
+# (Early.REC.NREM - Early.REC.NREM.Match), across subject-structure pairs?
+#
+# Covers every model variant Fig. 5 and its legend promise:
+#   - the headline (1|subject) fit on the raw predictor          [Fig. 5a-d, "raw"]
+#   - the same fit with an added by-structure random intercept   [legend]
+#   - rank- and log-transformed predictors                       [Fig. 5a-d panels 2-3]
+#   - the SD predictor over the whole window ("wake + sleep") or over its wake
+#     epochs only ("wake only" = intrusion-free)                 [legend]
+# The leave-out / influence battery for these same fits is Supplementary Table S4b.
+#
+# Scope: Fig. 5a-d and the Results paragraph cover only All OFFs and Medium +
+# Large, so Small OFFs are deliberately not listed here. No BLAS.
+
+table_type: correlation_slope
+results_dir: _output_correlations
+output_dir: _output_manuscript
+
+title: "Supplementary Table S4a. Sleep-deprivation OFF expression predicts the subsequent NREM rebound."
+caption: >-
+  Linear mixed-effects slope of an OFF metric's NREM rebound (its value in early
+  recovery NREM minus its circadian-matched baseline) on the same metric measured
+  over the sleep-deprivation (SD) window, across unique subject-structure pairs
+  (y ~ x + (1 | subject)). The SD predictor is measured over the whole SD window
+  (wake together with any sleep intrusions) or over its wake epochs only. Within
+  each block the four rows are the headline model, the same model with an added
+  by-structure random intercept, and the headline model refit with the predictor
+  rank- and log-transformed; the response is unchanged throughout. Slope is
+  reported with its Wald 95% CI; p is the likelihood-ratio test of the slope
+  against the intercept-only model (two-sided, unadjusted); effect size is
+  Cohen's f²; n = unique subject-structure pairs entering the fit. Stars: ***
+  <0.001, ** <0.01, * <0.05. Slopes are on the scale of the transformed
+  predictor and are therefore NOT comparable across the rows of a block (see the
+  Units column); only the p values and effect sizes are. Leave-out and influence
+  diagnostics for these same fits are given in Supplementary Table S4b.
+
+metric_labels:
+  rate: "OFF rate"
+  total_area_norm: "Total OFF area (normalized)"
+predictor_labels:
+  NOD: "SD window (wake + sleep)"
+  NOD.Wake: "SD window (wake only)"
+
+# Slope units per response measure x predictor transform. The response is always
+# the measure's own rebound, so the numerator repeats the measure's own unit.
+metric_units:
+  rate:
+    raw: "Hz per Hz"
+    rank: "Hz per rank"
+    log: "Hz per ln-unit"
+  total_area_norm:
+    raw: "a.u. per a.u."
+    rank: "a.u. per rank"
+    log: "a.u. per ln-unit"
+
+# Rows within each block.
+variants:
+  - {model: subject, transform: raw, label: "(1 | subject), raw predictor"}
+  - {model: subject_structure, transform: raw, label: "+ (1 | structure), raw predictor"}
+  - {model: subject, transform: rank, label: "(1 | subject), rank-transformed predictor"}
+  - {model: subject, transform: log, label: "(1 | subject), log-transformed predictor"}
+
+# entry: [dataset, metric, response_metric|null, predictor]; null response_metric
+# means the measure is regressed on its own SD-window value.
+entries:
+  - [llas, rate, null, NOD]
+  - [llas, rate, null, NOD.Wake]
+  - [clas, rate, null, NOD]
+  - [clas, rate, null, NOD.Wake]
+  - [llas, total_area_norm, null, NOD]
+  - [llas, total_area_norm, null, NOD.Wake]
+  - [clas, total_area_norm, null, NOD]
+  - [clas, total_area_norm, null, NOD.Wake]
+
+sheet: "S4a SD-rebound"
