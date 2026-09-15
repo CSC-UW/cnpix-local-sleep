@@ -17,17 +17,35 @@ window are from the same hypnograms.
 
 ## Result
 
-| stack dir | written | content matches | pairs |
-| --- | --- | --- | --- |
-| `condition=Late.NOD` | 2026-02 (notebook, pre-refactor) | `Late.NOD.Wake` (coverage 1.000; bare `Late.NOD` 0.83–1.00) | 24 of 26 |
-| `condition=Late.NOD` | 2026-02 | neither (see Giuseppe) | CNPIX7-Giuseppe imec0, imec1 |
-| `condition=Early.NOD` | 2026-07 (`scripts/write_sam3_stacks.py`) | bare `Early.NOD` (mixed) | 26 of 26; differs from `Early.NOD.Wake` in 5 pairs |
+Two-sided check against the **current** hypnogram files: `in` = fraction of
+stack samples inside the window; `of` = fraction of 1 s bins of the window that
+contain a stack sample. A stack holds 3596–3600 s of a 3600 s window (the last
+partial 4 s chunk is dropped), so `of` ≥ 0.9989 is a full match.
 
-Pairs where `Early.NOD` != `Early.NOD.Wake` (NREM seconds inside the bare
-1 h window; fraction of stack covered by `Early.NOD.Wake`): CNPIX3-Valentino
-imec0 (701 s; 0.805), CNPIX4-Doppio imec0/imec1 (23 s; 0.994), CNPIX16-Walter
-imec0 (44 s; 0.988), CNPIX18-Pier imec0/imec1 (37 s; 0.990). For the other
-21 pairs the two windows are identical.
+| stack dir | written | content matches (current definition) | pairs |
+| --- | --- | --- | --- |
+| `condition=Late.NOD` | 2026-02 (notebook, pre-refactor) | `Late.NOD.Wake`: in = 1.0000, of ≥ 0.9989; bare `Late.NOD`: in 0.83–1.00 | 24 of 26 |
+| `condition=Late.NOD` | 2026-02 | the 2026-03-09 `Late.NOD.Wake` exactly (in = 1.0000), current 0.03 / 0.007 | CNPIX7-Giuseppe imec0, imec1 |
+| `condition=Early.NOD` | 2026-07 (`scripts/write_sam3_stacks.py`) | bare `Early.NOD`: in = 1.0000, of ≥ 0.9991 | 25 of 26 |
+| `condition=Early.NOD` | 2026-07 | the 2026-06-20 `Early.NOD` (in = 1.0000), current 0.92 | CNPIX7-Giuseppe imec1 |
+| `condition=Early.REC.NREM` | 2026-02 | `Early.REC.NREM`: in = 1.0, of ≥ 0.9992 | 26 of 26 |
+
+Pairs where the current `Early.NOD` != `Early.NOD.Wake` (NREM seconds inside the
+bare 1 h window; fraction of stack covered by `Early.NOD.Wake`): CNPIX3-Valentino
+imec0 (701 s; 0.805), CNPIX4-Doppio imec0 and imec1 (23 s; 0.994), CNPIX16-Walter
+imec0 (44 s; 0.988), CNPIX18-Pier imec0 and imec1 (37 s; 0.990). That is six
+pairs across four subjects (an earlier draft said five). For the other 19
+non-Giuseppe pairs the two windows coincide, and their `Early.NOD` stacks match
+the current `Early.NOD.Wake` two-sidedly (of ≥ 0.9991). Regenerating
+`Early.NOD.Wake` stacks would therefore touch seven pairs: those six plus
+CNPIX7-Giuseppe imec1.
+
+Only Giuseppe's condition hypnograms changed after 2026-03-09 (all other
+subjects' parquets still carry that mtime), so for every other pair "current"
+and "as of stack generation" are the same file for the July stacks; the
+February stacks predate the 2026-03-09 regeneration, but the two-sided match
+above is measured against the current files, so they match the current
+definition regardless of what they were generated from.
 
 So the two NOD stack families were built by different rules:
 
@@ -45,9 +63,12 @@ So the two NOD stack families were built by different rules:
 ## CNPIX7-Giuseppe
 
 Giuseppe's condition hypnograms (`shared_s3/novel_objects_deprivation/CNPIX7-Giuseppe/imec*.condition_hypnograms.parquet`)
-were regenerated on 2026-08-12; every other subject's date from 2026-03-09. Both
-Giuseppe stack batches predate that, so its stacks no longer line up with the
-current windows:
+were re-edited on 2026-06-20 (twice) and 2026-08-12 (`hypnogram_ephyviewer_edits.csv`
+edited that day); the superseded versions survive as `*.bak-2026-06-20`,
+`*.bak-2026-06-20-2` and `*.bak-2026-08-12`. Tested against each version, the
+February `Late.NOD` stacks match the 2026-03-09 `Late.NOD.Wake` exactly
+(in = 1.0000 on both probes) and the July imec1 `Early.NOD` stack matches the
+second 2026-06-20 `Early.NOD` exactly. Against the current windows:
 
 | probe | stack | stack span (s) | current `Late.NOD.Wake` window (s) | coverage |
 | --- | --- | --- | --- | --- |
@@ -56,10 +77,34 @@ current windows:
 | imec1 | Early.NOD | 92142–99629 | 92142–96678 | 0.925 |
 
 Giuseppe has manual `Late.NOD.Wake` labels on both probes and SAM3 model labels
-on both, all painted/inferred on these stale stacks. Any evaluation that
-restricts by the current hypnogram (rather than by the stack's own
-`timestamps.zarr`) will effectively drop Giuseppe's wake data. Regenerating the
-stacks would orphan the labels, so this is flagged, not fixed.
+on both, all painted/inferred on these stale stacks. Regenerating the stacks
+would orphan the labels, so on 2026-09-15 the stacks and their labels were
+instead renamed to carry the hypnogram version they match:
+`condition=Late.NOD.Wake.hyp2026-03-09` (stacks, manual labels, both `model=`
+trees, both probes) and `condition=Early.NOD.hyp2026-06-20` (imec1 stack).
+Glob-based label discovery filtered on `Late.NOD.Wake` now returns 17 pairs
+without Giuseppe.
+
+## Renames performed 2026-09-15
+
+- 24 `condition=Late.NOD` stack directories -> `condition=Late.NOD.Wake`
+  (every pair whose stack matches the current window two-sidedly).
+- `cnpix.evaluation.config.STACK_CONDITION` / `stack_condition()` removed; the
+  evaluation condition is the stack directory name.
+- Giuseppe: 9 directories renamed to the versioned names above.
+- No tarballs were affected (none exist for `Late.NOD.Wake`).
+
+## Size of a whole-SD stack
+
+Current `SD` windows span 3.8–5.9 h across the 26 pairs (median ≈ 5.4 h; `SD.Wake`
+3.5–5.9 h). A 1 h stack is 400–490 MB on disk (Otto `Late.NOD.Wake`: 452 MB,
+of which the full-resolution AP level is 327 MB), so a whole-SD stack is
+roughly 1.7–2.7 GB per pair, about 2.4 GB at the median, or ≈ 60 GB for the
+cohort; tarballs ≈ 0.7×. Chunks stay 4 s, so ≈ 4 900 chunks per stack. The
+label arrays scale the same way and are the larger cost if saved uncompressed:
+the Otto `Late.NOD.Wake` manual NPZ is 1.64 GB for 900 chunks (`np.savez`),
+which would be ≈ 9 GB for a whole SD; `np.savez_compressed` brings that to a
+few MB (the model NPZs are 1.6–2.4 MB).
 
 ## Related housekeeping done the same day
 

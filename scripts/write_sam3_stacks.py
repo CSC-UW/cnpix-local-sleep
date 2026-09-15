@@ -24,11 +24,11 @@ These stacks are what get manually annotated in napari for SAM3 finetuning /
 evaluation. The whole-recording ``processed_ap.zarr`` (v1) is condition-agnostic
 on disk -- the condition only selects timepoints via its hypnogram -- so every
 condition reuses the same preprocessed inputs that produced the existing
-``Early.REC.NREM`` / ``Late.NOD`` stacks. No new preprocessing is required.
+``Early.REC.NREM`` / ``Late.NOD.Wake`` stacks. No new preprocessing is required.
 
 The cohort defaults to ``get_subject_probe_list(method="annotation-grid")``,
 which is exactly the 26 ``(subject, probe)`` pairs that already carry
-``Early.REC.NREM`` + ``Late.NOD`` stacks. Existing stacks are skipped unless ``--overwrite`` is passed,
+``Early.REC.NREM`` + ``Late.NOD.Wake`` stacks. Existing stacks are skipped unless ``--overwrite`` is passed,
 so the script is safe to re-run and resume.
 
 Run through the workspace venv so editable sibling packages are used:
@@ -74,9 +74,8 @@ from cnpix_local_sleep.stacks import write
 # The four conditions requested for new stack generation, most-important first.
 # All are valid keys of ``load_statistical_condition_hypnograms``; the stack is
 # stored under ``condition=<key>`` and holds exactly that hypnogram's timepoints.
-# NB ``Early.NOD`` is the mixed Wake+NREM window, not ``Early.NOD.Wake``; the
-# pre-existing ``condition=Late.NOD`` stacks, by contrast, hold ``Late.NOD.Wake``
-# content (see cnpix-local-sleep/docs/reports/2026-09-15_sam3_stack_condition_audit.md).
+# NB ``Early.NOD`` is the mixed Wake+NREM window, not ``Early.NOD.Wake``
+# (see cnpix-local-sleep/docs/reports/2026-09-15_sam3_stack_condition_audit.md).
 DEFAULT_CONDITIONS: tuple[str, ...] = (
     "Early.REC.NREM.Match",
     "Late.REC.NREM",

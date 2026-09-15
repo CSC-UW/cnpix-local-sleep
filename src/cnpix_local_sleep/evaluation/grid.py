@@ -12,7 +12,6 @@ import numpy as np
 import zarr
 
 from cnpix_local_sleep import trace_io
-from cnpix_local_sleep.evaluation import config
 from cnpix_local_sleep.stacks import files as stk_files
 
 
@@ -21,13 +20,10 @@ def load_stack_times_flat(subject: str, probe: str, condition: str) -> np.ndarra
 
     Reads the stack ``timestamps.zarr`` (shape ``(n_chunks, samples_per_chunk)``)
     and flattens it so that index ``chunk * samples_per_chunk + sample`` gives the
-    absolute time of that grid position. ``condition`` is the *evaluation*
-    condition; the truncated stack-directory name (e.g. ``Late.NOD`` for Wake) is
-    resolved internally.
+    absolute time of that grid position.
     """
-    stack_cond = config.stack_condition(condition)
     ts_path = stk_files.get_sam3_off_stacks_timestamps_path(
-        subject, probe, stack_cond, structure=None
+        subject, probe, condition, structure=None
     )
     return zarr.open(str(ts_path), mode="r")[:].reshape(-1)
 

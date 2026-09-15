@@ -30,12 +30,9 @@ def _load_stack_ap_image(subject, probe, condition):
     """
     try:
         import zarr
-        from cnpix_local_sleep.evaluation import config as ev_config
         from cnpix_local_sleep.stacks import files as stk_files
 
-        zpath = stk_files.get_sam3_off_stacks_ome_zarr_path(
-            subject, probe, ev_config.stack_condition(condition)
-        )
+        zpath = stk_files.get_sam3_off_stacks_ome_zarr_path(subject, probe, condition)
         return zarr.open(str(zpath), mode="r")["0"]["0"]  # series 0 = AP image, uint8
     except Exception as exc:  # noqa: BLE001 - underlay is best-effort
         print(f"  (no AP stack image to underlay: {exc!r})")
