@@ -11,9 +11,14 @@ OME-Zarr image stack (AP / spikes / LFP / structure borders) to
 via :func:`cnpix_local_sleep.stacks.write.do_subject_probe` (which, after the writer was
 realigned with the ``method=sam3`` migration, targets exactly the layout that
 ``cnpix_local_sleep.evaluation`` and the OffViewer read from), then optionally tars each
-``condition=`` directory into
+``condition=`` directory into a mirror of the stack tree:
 
-    <offproj>/<experiment>/sam_stack_tarballs/{subject}_{probe}_{condition}.tar.gz
+    <offproj>/<experiment>/sam_stack_tarballs/{subject}/method=sam3/probe={probe}/
+        condition={condition}.tar.gz
+
+i.e. ``sam_stack_tarballs/<stack dir relative to the experiment dir>.tar.gz``.
+Each archive unpacks to ``condition={condition}/{off_stacks.ome.zarr,timestamps.zarr}``.
+The tarballs are pure derivatives of the stacks and can be rebuilt with ``--tar-only``.
 
 These stacks are what get manually annotated in napari for SAM3 finetuning /
 evaluation. The whole-recording ``processed_ap.zarr`` (v1) is condition-agnostic
@@ -67,9 +72,11 @@ from cnpix_local_sleep.sps_conf import get_subject_probe_list
 from cnpix_local_sleep.stacks import write
 
 # The four conditions requested for new stack generation, most-important first.
-# All are valid keys of ``load_statistical_condition_hypnograms`` and, like the
-# existing ``Late.NOD`` stacks, are stored under a ``condition=<name>`` directory
-# that matches the hypnogram key verbatim.
+# All are valid keys of ``load_statistical_condition_hypnograms``; the stack is
+# stored under ``condition=<key>`` and holds exactly that hypnogram's timepoints.
+# NB ``Early.NOD`` is the mixed Wake+NREM window, not ``Early.NOD.Wake``; the
+# pre-existing ``condition=Late.NOD`` stacks, by contrast, hold ``Late.NOD.Wake``
+# content (see cnpix-local-sleep/docs/reports/2026-09-15_sam3_stack_condition_audit.md).
 DEFAULT_CONDITIONS: tuple[str, ...] = (
     "Early.REC.NREM.Match",
     "Late.REC.NREM",
@@ -78,12 +85,20 @@ DEFAULT_CONDITIONS: tuple[str, ...] = (
 )
 
 
+def get_experiment_dir():
+    return wet.get_sglx_project("offproj").get_experiment_directory(op.EXPERIMENT)
+
+
 def get_tarball_dir():
-    """Directory holding ``{subject}_{probe}_{condition}.tar.gz`` shipping tarballs."""
-    return (
-        wet.get_sglx_project("offproj").get_experiment_directory(op.EXPERIMENT)
-        / "sam_stack_tarballs"
-    )
+    """Root of the shipping-tarball tree, which mirrors the stack tree."""
+    return get_experiment_dir() / "sam_stack_tarballs"
+
+
+def get_tarball_path(subject: str, probe: str, condition: str):
+    """``sam_stack_tarballs/<stack dir relative to the experiment dir>.tar.gz``."""
+    savedir = stk_files.get_sam3_savedir_path(subject, probe, condition, None)
+    rel = savedir.relative_to(get_experiment_dir())
+    return get_tarball_dir() / rel.with_name(rel.name + ".tar.gz")
 
 
 def tar_stack(subject: str, probe: str, condition: str, overwrite: bool) -> str:
@@ -97,7 +112,7 @@ def tar_stack(subject: str, probe: str, condition: str, overwrite: bool) -> str:
         print(f"  [tar] no stack at {savedir}; skipping tarball")
         return "tar-skip-no-stack"
 
-    tarball = get_tarball_dir() / f"{subject}_{probe}_{condition}.tar.gz"
+    tarball = get_tarball_path(subject, probe, condition)
     tarball.parent.mkdir(parents=True, exist_ok=True)
     if tarball.exists() and not overwrite:
         print(f"  [tar] exists, skipping: {tarball}")
