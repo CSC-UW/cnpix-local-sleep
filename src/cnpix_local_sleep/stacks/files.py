@@ -1,6 +1,14 @@
-"""File paths for OFF period image stacks."""
+"""File paths for OFF period image stacks.
+
+The two reader getters refuse a stack directory carrying a ``STALE.json``
+marker (see :func:`cnpix.evaluation.paths.check_not_stale`) unless
+``allow_stale=True``; the savedir getter does not, so writers can create new
+directories freely.
+"""
 
 import pathlib
+
+from cnpix.evaluation import paths as label_paths
 
 from cnpix_local_sleep import files
 
@@ -30,9 +38,11 @@ def get_sam3_off_stacks_ome_zarr_path(
     probe: str,
     condition: str,
     structure: str | None = None,
+    *,
+    allow_stale: bool = False,
 ) -> pathlib.Path:
     """Get path for SAM3 OME-Zarr off stacks store."""
-    return files.get_path(
+    path = files.get_path(
         "off_stacks.ome.zarr",
         subject=subject,
         method="sam3",
@@ -40,6 +50,8 @@ def get_sam3_off_stacks_ome_zarr_path(
         structure=structure,
         condition=condition,
     )
+    label_paths.check_not_stale(path.parent, allow_stale=allow_stale)
+    return path
 
 
 def get_sam3_off_stacks_timestamps_path(
@@ -47,9 +59,11 @@ def get_sam3_off_stacks_timestamps_path(
     probe: str,
     condition: str,
     structure: str | None = None,
+    *,
+    allow_stale: bool = False,
 ) -> pathlib.Path:
     """Get path for SAM3 timestamps zarr array."""
-    return files.get_path(
+    path = files.get_path(
         "timestamps.zarr",
         subject=subject,
         method="sam3",
@@ -57,3 +71,5 @@ def get_sam3_off_stacks_timestamps_path(
         structure=structure,
         condition=condition,
     )
+    label_paths.check_not_stale(path.parent, allow_stale=allow_stale)
+    return path

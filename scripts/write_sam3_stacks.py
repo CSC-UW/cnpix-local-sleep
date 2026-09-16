@@ -1,4 +1,4 @@
-"""Generate SAM3 OFF-annotation image stacks (+ tarballs) for the NOD cohort.
+"""Generate SAM3 OFF-annotation image stacks for the NOD cohort.
 
 Script-based replacement for ``notebooks/sam3/write_ome_off_stacks.ipynb``. For
 each ``(subject, probe)`` in the cohort and each requested condition it writes an
@@ -10,15 +10,8 @@ OME-Zarr image stack (AP / spikes / LFP / structure borders) to
 
 via :func:`cnpix_local_sleep.stacks.write.do_subject_probe` (which, after the writer was
 realigned with the ``method=sam3`` migration, targets exactly the layout that
-``cnpix_local_sleep.evaluation`` and the OffViewer read from), then optionally tars each
-``condition=`` directory into a mirror of the stack tree:
-
-    <offproj>/<experiment>/sam_stack_tarballs/{subject}/method=sam3/probe={probe}/
-        condition={condition}.tar.gz
-
-i.e. ``sam_stack_tarballs/<stack dir relative to the experiment dir>.tar.gz``.
-Each archive unpacks to ``condition={condition}/{off_stacks.ome.zarr,timestamps.zarr}``.
-The tarballs are pure derivatives of the stacks and can be rebuilt with ``--tar-only``.
+``cnpix_local_sleep.evaluation`` and the OffViewer read from). Consumers download
+these OME-Zarr directories directly; no packaged copies are produced.
 
 These stacks are what get manually annotated in napari for SAM3 finetuning /
 evaluation. The whole-recording ``processed_ap.zarr`` (v1) is condition-agnostic
@@ -39,91 +32,43 @@ Examples
     uv run --project gfys_workspace python cnpix-local-sleep/scripts/write_sam3_stacks.py \
         --dry-run
 
-    # Default: the four requested conditions across the whole cohort, tarred.
-    # Early.REC.NREM.Match is generated first (highest priority).
+    # Default: every annotation condition across the whole cohort; existing
+    # stacks are skipped, so this is a no-op resume when all exist.
     uv run --project gfys_workspace python cnpix-local-sleep/scripts/write_sam3_stacks.py
 
     # Just the most important condition.
     uv run --project gfys_workspace python cnpix-local-sleep/scripts/write_sam3_stacks.py \
         --conditions Early.REC.NREM.Match
 
-    # One subject, one probe, no tarballs, quick 3-chunk smoke test.
+    # One subject, one probe, quick 3-chunk smoke test.
     uv run --project gfys_workspace python cnpix-local-sleep/scripts/write_sam3_stacks.py \
         --subjects CNPIX15-Claude --probes imec0 \
-        --conditions Early.REC.NREM.Match --no-tar --max-chunks 3
-
-    # Only (re)build tarballs from stacks that already exist on disk.
-    uv run --project gfys_workspace python cnpix-local-sleep/scripts/write_sam3_stacks.py \
-        --tar-only
+        --conditions Early.REC.NREM.Match --max-chunks 3
 """
 
 from __future__ import annotations
 
 import argparse
-import subprocess
 import time
 import traceback
 
-import wisc_ecephys_tools as wet
-
-import cnpix_local_sleep as op
 import cnpix_local_sleep.stacks.files as stk_files
 from cnpix_local_sleep.sps_conf import get_subject_probe_list
 from cnpix_local_sleep.stacks import write
 
-# The four conditions requested for new stack generation, most-important first.
-# All are valid keys of ``load_statistical_condition_hypnograms``; the stack is
-# stored under ``condition=<key>`` and holds exactly that hypnogram's timepoints.
-# NB ``Early.NOD`` is the mixed Wake+NREM window, not ``Early.NOD.Wake``
-# (see cnpix-local-sleep/docs/reports/2026-09-15_sam3_stack_condition_audit.md).
+# Conditions for stack generation, most-important first. All are valid keys of
+# ``load_statistical_condition_hypnograms``; the stack is stored under
+# ``condition=<key>`` and holds exactly that hypnogram's timepoints. NOD
+# annotation stacks are the wake-only windows (``*.NOD.Wake``), never the mixed
+# ``Early.NOD``/``Late.NOD`` (cnpix-local-sleep/docs/reports/2026-09-15_sam3_stack_condition_audit.md).
 DEFAULT_CONDITIONS: tuple[str, ...] = (
     "Early.REC.NREM.Match",
     "Late.REC.NREM",
     "Early.BSL.NREM",
-    "Early.NOD",
+    "Early.NOD.Wake",
+    "Early.REC.NREM",
+    "Late.NOD.Wake",
 )
-
-
-def get_experiment_dir():
-    return wet.get_sglx_project("offproj").get_experiment_directory(op.EXPERIMENT)
-
-
-def get_tarball_dir():
-    """Root of the shipping-tarball tree, which mirrors the stack tree."""
-    return get_experiment_dir() / "sam_stack_tarballs"
-
-
-def get_tarball_path(subject: str, probe: str, condition: str):
-    """``sam_stack_tarballs/<stack dir relative to the experiment dir>.tar.gz``."""
-    savedir = stk_files.get_sam3_savedir_path(subject, probe, condition, None)
-    rel = savedir.relative_to(get_experiment_dir())
-    return get_tarball_dir() / rel.with_name(rel.name + ".tar.gz")
-
-
-def tar_stack(subject: str, probe: str, condition: str, overwrite: bool) -> str:
-    """Tar the ``method=sam3`` ``condition=`` stack directory for one recording.
-
-    Returns a short status string: ``"tarred"``, ``"tar-skip-exists"``, or
-    ``"tar-skip-no-stack"``.
-    """
-    savedir = stk_files.get_sam3_savedir_path(subject, probe, condition, None)
-    if not savedir.exists() or not any(savedir.iterdir()):
-        print(f"  [tar] no stack at {savedir}; skipping tarball")
-        return "tar-skip-no-stack"
-
-    tarball = get_tarball_path(subject, probe, condition)
-    tarball.parent.mkdir(parents=True, exist_ok=True)
-    if tarball.exists() and not overwrite:
-        print(f"  [tar] exists, skipping: {tarball}")
-        return "tar-skip-exists"
-
-    # ``-C savedir.parent`` so the archive contains ``condition=<condition>/...``.
-    subprocess.run(
-        ["tar", "-czf", str(tarball), "-C", str(savedir.parent), savedir.name],
-        check=True,
-    )
-    print(f"  [tar] created {tarball}")
-    return "tarred"
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -164,17 +109,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--overwrite",
         action="store_true",
-        help="Rewrite stacks/tarballs that already exist (default: skip them).",
-    )
-    p.add_argument(
-        "--no-tar",
-        action="store_true",
-        help="Write stacks only; do not create tarballs.",
-    )
-    p.add_argument(
-        "--tar-only",
-        action="store_true",
-        help="Do not write stacks; only tar stacks that already exist on disk.",
+        help="Rewrite stacks that already exist (default: skip them).",
     )
     p.add_argument(
         "--max-chunks",
@@ -209,8 +144,6 @@ def main() -> None:
     )
     print(f"Conditions (in order): {args.conditions}")
     print("Stacks written under: method=sam3/probe=<probe>/condition=<condition>/")
-    if not args.no_tar and not args.dry_run:
-        print(f"Tarballs written under: {get_tarball_dir()}")
     print()
 
     if args.dry_run:
@@ -229,7 +162,7 @@ def main() -> None:
 
     # Outer loop over conditions so the highest-priority condition finishes for
     # the whole cohort before the next one begins.
-    statuses: list[tuple[str, str, str, str]] = []
+    statuses: list[tuple[str, str, str]] = []
     failures: list[tuple[str, str, str, str]] = []
     t0 = time.time()
     for condition in args.conditions:
@@ -237,25 +170,19 @@ def main() -> None:
             tag = f"{subject}/{probe}/{condition}"
             start = time.time()
             try:
-                if not args.tar_only:
-                    print(f"Starting stack: {tag}")
-                    write.do_subject_probe(
-                        subject=subject,
-                        probe=probe,
-                        condition=condition,
-                        structure_acronym=None,
-                        ap_type=args.ap_type,
-                        overwrite=args.overwrite,
-                        max_chunks=args.max_chunks,
-                    )
-                tar_status = (
-                    "tar-skipped"
-                    if args.no_tar
-                    else tar_stack(subject, probe, condition, args.overwrite)
+                print(f"Starting stack: {tag}")
+                write.do_subject_probe(
+                    subject=subject,
+                    probe=probe,
+                    condition=condition,
+                    structure_acronym=None,
+                    ap_type=args.ap_type,
+                    overwrite=args.overwrite,
+                    max_chunks=args.max_chunks,
                 )
                 elapsed = time.time() - start
-                statuses.append((condition, subject, probe, tar_status))
-                print(f"Completed {tag} ({tar_status}) in {elapsed:.1f}s\n")
+                statuses.append((condition, subject, probe))
+                print(f"Completed {tag} in {elapsed:.1f}s\n")
             except Exception as exc:  # noqa: BLE001 - keep the batch going
                 failures.append((condition, subject, probe, repr(exc)))
                 print(f"FAILED {tag}: {exc}")

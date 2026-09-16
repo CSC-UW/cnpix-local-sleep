@@ -94,6 +94,50 @@ without Giuseppe.
 - Giuseppe: 9 directories renamed to the versioned names above.
 - No tarballs were affected (none exist for `Late.NOD.Wake`).
 
+## Wake-only NOD convention applied (2026-09-15, later the same day)
+
+User decision: NOD annotation stacks are the wake-only windows, named
+accordingly.
+
+- 19 `condition=Early.NOD` stacks whose content equals the current
+  `Early.NOD.Wake` renamed to `condition=Early.NOD.Wake` (Giuseppe imec0 among them).
+- Regenerated with `write_sam3_stacks.py --conditions Early.NOD.Wake Late.NOD.Wake`
+  (existing stacks skipped): `Early.NOD.Wake` for Valentino imec0, Doppio
+  imec0/imec1, Walter imec0, Pier imec0/imec1, Giuseppe imec1; `Late.NOD.Wake`
+  for Giuseppe imec0/imec1. Their six superseded mixed `Early.NOD` stacks were
+  deleted afterwards; the 26 `Early.NOD` tarballs (which unpack to
+  `condition=Early.NOD/`) were deleted and `Early.NOD.Wake` tarballs rebuilt.
+- `DEFAULT_CONDITIONS` in the script now lists all six annotation conditions
+  with `Early.NOD.Wake` in place of `Early.NOD`.
+- Outcome: 9 stacks written in 89.9 min (about 10 min each), 0 failures. All 52
+  `*.NOD.Wake` stacks (26 pairs × 2) re-checked two-sidedly against the current
+  hypnograms: in = 1.0000 and of ≥ 0.9991 for every one. Stack condition
+  directories on disk are now exactly 26 × {`Early.BSL.NREM`, `Early.NOD.Wake`,
+  `Early.REC.NREM`, `Early.REC.NREM.Match`, `Late.NOD.Wake`, `Late.REC.NREM`}
+  plus Giuseppe's three `.hyp*` directories. No `condition=Early.NOD` or
+  `condition=Late.NOD` directory remains.
+- Giuseppe's NREM stacks needed nothing: all four NREM conditions match the
+  current hypnograms two-sidedly on both probes.
+
+## Staleness guard
+
+Giuseppe's nine superseded directories each carry a `STALE.json`
+(`cnpix.evaluation.paths.STALE_MARKER`; fields `reason`,
+`matches_hypnogram_version`, `current_condition`, `replacement`, ...).
+`cnpix.evaluation.labels.load_manual_labels`, `samoffs.labels.load_model_labels`
+and the stack reader getters in `cnpix_local_sleep.stacks.files` raise
+`StaleDataError` on such a directory unless `allow_stale=True`. Verified
+against the real directories for all four reader paths. Tests:
+`cnpix/tests/test_evaluation_stale.py`.
+
+## Tarballs retired (2026-09-16)
+
+`sam_stack_tarballs/` (104 archives, 31 GB) was deleted and the tarball helpers
+and `--tar-only`/`--no-tar` flags removed from `write_sam3_stacks.py`; the
+registry entry `cnpix_local_sleep.stacks.sam_stack_tarballs` is gone. Consumers
+download the authoritative OME-Zarr stack directories directly. The tarball
+mentions above are history.
+
 ## Size of a whole-SD stack
 
 Current `SD` windows span 3.8–5.9 h across the 26 pairs (median ≈ 5.4 h; `SD.Wake`
