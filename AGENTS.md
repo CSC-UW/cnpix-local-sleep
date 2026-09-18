@@ -19,6 +19,21 @@ else (exploratory analysis, the two interactive OFF tuners, the Harding GMM code
 cell-type firing, OFF-locked PETHs, links to thalamic activity) belong in another repo `offproj`, which depends on this package.
 The dependency runs dev -> manuscript and must never be inverted.
 
+## Branches
+
+`main` carries only published versions: one commit per release, tagged. All work
+happens on `dev`, which is what `offproj`, `OffViewer` and the `gfys_workspace`
+checkout track. At a release, `dev` is squashed onto `main` and then reset to it:
+
+```bash
+git checkout main && git merge --squash dev && git commit && git tag <release-tag>
+git push origin main --tags
+git branch -f dev main && git push --force-with-lease origin dev
+```
+
+`main` is never force-pushed. `dev` history is disposable and is replaced at every
+release, so do not pin `dev` commit shas anywhere durable.
+
 ## Build & Test
 
 If you are working on behalf of the author (Graham) on WISC infrastructure (tononi-1 or tononi-2), run everything through the workspace project so the local editable siblings are used:

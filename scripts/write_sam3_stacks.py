@@ -4,12 +4,12 @@ Script-based replacement for ``notebooks/sam3/write_ome_off_stacks.ipynb``. For
 each ``(subject, probe)`` in the cohort and each requested condition it writes an
 OME-Zarr image stack (AP / spikes / LFP / structure borders) to
 
-    <offproj>/<experiment>/{subject}/method=sam3/probe={probe}/
+    <samoffs>/<experiment>/{subject}/probe={probe}/
         condition={condition}/off_stacks.ome.zarr
         condition={condition}/timestamps.zarr
 
 via :func:`cnpix_local_sleep.stacks.write.do_subject_probe` (which, after the writer was
-realigned with the ``method=sam3`` migration, targets exactly the layout that
+realigned with the ``samoffs`` project migration, targets exactly the layout that
 ``cnpix_local_sleep.evaluation`` and the OffViewer read from). Consumers download
 these OME-Zarr directories directly; no packaged copies are produced.
 
@@ -21,8 +21,12 @@ condition reuses the same preprocessed inputs that produced the existing
 
 The cohort defaults to ``get_subject_probe_list(method="annotation-grid")``,
 which is exactly the 26 ``(subject, probe)`` pairs that already carry
-``Early.REC.NREM`` + ``Late.NOD.Wake`` stacks. Existing stacks are skipped unless ``--overwrite`` is passed,
-so the script is safe to re-run and resume.
+``Early.REC.NREM`` + ``Late.NOD.Wake`` stacks. Existing stacks are skipped unless
+``--overwrite`` is passed, so the script is safe to re-run and resume.
+
+Most conditions are 1 cumulative hour (~900 four-second chunks, ~450 MB). ``NOD``
+covers the whole sleep-deprivation period (3.8-5.9 h, up to 2.7 GB, ~1 h to
+write per pair).
 
 Run through the workspace venv so editable sibling packages are used:
 
@@ -58,9 +62,10 @@ from cnpix_local_sleep.stacks import write
 
 # Conditions for stack generation, most-important first. All are valid keys of
 # ``load_statistical_condition_hypnograms``; the stack is stored under
-# ``condition=<key>`` and holds exactly that hypnogram's timepoints. NOD
+# ``condition=<key>`` and holds exactly that hypnogram's timepoints. The 1 h NOD
 # annotation stacks are the wake-only windows (``*.NOD.Wake``), never the mixed
-# ``Early.NOD``/``Late.NOD`` (cnpix-local-sleep/docs/reports/2026-09-15_sam3_stack_condition_audit.md).
+# ``Early.NOD``/``Late.NOD``; ``NOD`` is the whole SD period (Wake+NREM bouts).
+# See cnpix-local-sleep/docs/reports/2026-09-15_sam3_stack_condition_audit.md.
 DEFAULT_CONDITIONS: tuple[str, ...] = (
     "Early.REC.NREM.Match",
     "Late.REC.NREM",
@@ -68,6 +73,7 @@ DEFAULT_CONDITIONS: tuple[str, ...] = (
     "Early.NOD.Wake",
     "Early.REC.NREM",
     "Late.NOD.Wake",
+    "NOD",
 )
 
 
@@ -143,7 +149,7 @@ def main() -> None:
         f"= {n_targets} target(s)"
     )
     print(f"Conditions (in order): {args.conditions}")
-    print("Stacks written under: method=sam3/probe=<probe>/condition=<condition>/")
+    print("Stacks written under: <samoffs>/<experiment>/{subject}/probe=<probe>/condition=<condition>/")
     print()
 
     if args.dry_run:
