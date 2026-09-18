@@ -955,8 +955,8 @@ def make_savedir(
     Returns
     -------
     Path
-        Path to the save directory (``method=sam3/probe=<probe>/
-        condition=<condition>``), matching where every stack reader
+        Path to the save directory (``<samoffs>/<experiment>/{subject}/probe={probe}/
+        condition={condition}``), matching where every stack reader
         (``cnpix_local_sleep.evaluation``, ``cnpix_local_sleep.stacks.files.get_sam3_*``) looks.
     """
     savedir = stk_files.get_sam3_savedir_path(

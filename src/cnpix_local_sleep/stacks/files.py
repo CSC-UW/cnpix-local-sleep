@@ -12,8 +12,7 @@ from cnpix.evaluation import paths as label_paths
 
 from cnpix_local_sleep import files
 
-
-# SAM3 paths (method=sam3, no detection_mode component)
+# Image-stack paths in the samoffs project (no method or detection_mode component)
 
 
 def get_sam3_savedir_path(
@@ -26,7 +25,7 @@ def get_sam3_savedir_path(
     return files.get_path(
         "",
         subject=subject,
-        method="sam3",
+        project=label_paths.MODEL_LABELS_PROJECT,
         probe=probe,
         structure=structure_acronym,
         condition=condition,
@@ -45,7 +44,7 @@ def get_sam3_off_stacks_ome_zarr_path(
     path = files.get_path(
         "off_stacks.ome.zarr",
         subject=subject,
-        method="sam3",
+        project=label_paths.MODEL_LABELS_PROJECT,
         probe=probe,
         structure=structure,
         condition=condition,
@@ -66,7 +65,7 @@ def get_sam3_off_stacks_timestamps_path(
     path = files.get_path(
         "timestamps.zarr",
         subject=subject,
-        method="sam3",
+        project=label_paths.MODEL_LABELS_PROJECT,
         probe=probe,
         structure=structure,
         condition=condition,
