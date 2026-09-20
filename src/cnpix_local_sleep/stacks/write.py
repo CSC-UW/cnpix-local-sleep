@@ -17,12 +17,12 @@ import ecephys.xrsig.core as xrc
 import ecephys.xrsig.plt as xrp
 import matplotlib.pyplot as plt
 import numba
-
 import numpy as np
 import numpy.typing as npt
 import wisc_ecephys_tools as wet
 import xarray as xr
 import zarr
+from cnpix import stacks
 from ecephys import plot as eplt
 from ecephys import units
 from numba.typed import Dict as NumbaDict
@@ -33,10 +33,8 @@ from PIL import Image
 
 import cnpix_local_sleep as op
 import cnpix_local_sleep.hyp as oph
-import cnpix_local_sleep.stacks.files as stk_files
 import cnpix_local_sleep.units as opu
-from cnpix_local_sleep import channel_anatomy
-from cnpix_local_sleep import trace_io
+from cnpix_local_sleep import channel_anatomy, trace_io
 
 
 def _open_ap_for_stacks(
@@ -957,11 +955,9 @@ def make_savedir(
     Path
         Path to the save directory (``<samoffs>/<experiment>/{subject}/probe={probe}/
         condition={condition}``), matching where every stack reader
-        (``cnpix_local_sleep.evaluation``, ``cnpix_local_sleep.stacks.files.get_sam3_*``) looks.
+        (``cnpix.stacks``) looks.
     """
-    savedir = stk_files.get_sam3_savedir_path(
-        subject, probe, condition, structure_acronym
-    )
+    savedir = stacks.stack_dir(subject, probe, condition, structure=structure_acronym)
     if not savedir.exists():
         savedir.mkdir(parents=True, exist_ok=True)
     return savedir

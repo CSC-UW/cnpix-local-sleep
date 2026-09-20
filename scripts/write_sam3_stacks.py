@@ -56,7 +56,8 @@ import argparse
 import time
 import traceback
 
-import cnpix_local_sleep.stacks.files as stk_files
+from cnpix import stacks
+
 from cnpix_local_sleep.sps_conf import get_subject_probe_list
 from cnpix_local_sleep.stacks import write
 
@@ -155,9 +156,7 @@ def main() -> None:
     if args.dry_run:
         for condition in args.conditions:
             for subject, probe in pairs:
-                savedir = stk_files.get_sam3_savedir_path(
-                    subject, probe, condition, None
-                )
+                savedir = stacks.stack_dir(subject, probe, condition)
                 exists = savedir.exists() and any(savedir.iterdir())
                 state = "EXISTS (would skip)" if exists else "would write"
                 if args.overwrite and exists:

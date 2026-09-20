@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import numpy as np
 import zarr
+from cnpix import stacks
 
 from cnpix_local_sleep import trace_io
-from cnpix_local_sleep.stacks import files as stk_files
 
 
 def load_stack_times_flat(subject: str, probe: str, condition: str) -> np.ndarray:
@@ -22,9 +22,7 @@ def load_stack_times_flat(subject: str, probe: str, condition: str) -> np.ndarra
     and flattens it so that index ``chunk * samples_per_chunk + sample`` gives the
     absolute time of that grid position.
     """
-    ts_path = stk_files.get_sam3_off_stacks_timestamps_path(
-        subject, probe, condition, structure=None
-    )
+    ts_path = stacks.timestamps_path(subject, probe, condition)
     return zarr.open(str(ts_path), mode="r")[:].reshape(-1)
 
 

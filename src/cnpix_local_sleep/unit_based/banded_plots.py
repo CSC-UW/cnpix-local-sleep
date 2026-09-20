@@ -29,11 +29,9 @@ def _load_stack_ap_image(subject, probe, condition):
     (``stack_row = (n-1) - channel_index``). Returns ``None`` (with a note) if unavailable.
     """
     try:
-        import zarr
-        from cnpix_local_sleep.stacks import files as stk_files
+        from cnpix import stacks
 
-        zpath = stk_files.get_sam3_off_stacks_ome_zarr_path(subject, probe, condition)
-        return zarr.open(str(zpath), mode="r")["0"]["0"]  # series 0 = AP image, uint8
+        return stacks.open_stack(subject, probe, condition)["ap_data"]  # uint8 AP image
     except Exception as exc:  # noqa: BLE001 - underlay is best-effort
         print(f"  (no AP stack image to underlay: {exc!r})")
         return None
