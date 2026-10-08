@@ -91,7 +91,6 @@ def head_to_head_structure(
     structure: str,
     *,
     eval_name: str = "NREM",
-    mua_source: str = "full48h",
     mua_filters=DEFAULT_MUA_FILTERS,
     post_ms=DEFAULT_POST_MS,
     banded_passes: dict | None = None,
@@ -134,11 +133,11 @@ def head_to_head_structure(
     for filter_name in mua_filters:
         raster = banded_vs_morphological.rasterize_morphological_masks(
             subject, probe, structure, condition, manual.shape,
-            filter_name=filter_name, off_source=mua_source,
+            filter_name=filter_name,
         )
         rows.append({
             **meta, "method": "morphological", "label": filter_name,
-            "filter_name": filter_name, "mua_off_source": mua_source, "post_ms": np.nan,
+            "filter_name": filter_name, "mua_off_source": "full48h", "post_ms": np.nan,
             **_score_raster(manual, raster, chunks, row_mask),
         })
 

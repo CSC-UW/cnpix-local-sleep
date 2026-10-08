@@ -1,21 +1,20 @@
-"""NFS-free unit tests for the manual-validation OFF-source plumbing.
+"""NFS-free unit tests for the manual-validation plumbing.
 
 Covers the SPOT LAS filter (:func:`cnpix_local_sleep.off_tables.filter_offs`), the
 label-index normalizer, and the full-recording MUA timebase accessor that the
-``off_source="full48h"`` true-mask path depends on.
+true-mask path depends on.
 """
 
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from cnpix_local_sleep.morphological import manual_validation as mv
 from cnpix_local_sleep import off_tables, trace_io
 
 
-# off_tables.filter_offs (SPOT LAS filter, shared by per-condition + full-48h)
+# off_tables.filter_offs (SPOT LAS filter)
 def _offs_frame():
     # rows chosen to straddle the llas/clas/blas thresholds
     return pd.DataFrame(
@@ -52,7 +51,7 @@ def test_filter_offs_none_is_passthrough():
 
 
 def test_filter_offs_matches_prior_inline_behavior():
-    """filter_offs reproduces the column-threshold mask load_subject_offs used inline."""
+    """filter_offs reproduces the inline column-threshold mask."""
     offs = _offs_frame().assign(span_rel2max=lambda d: d["span"] / d["max_span"])
     for name in ("llas", "clas", "blas"):
         filters = off_tables.NAMED_FILTERS[name]
@@ -109,10 +108,3 @@ def test_get_mua_full_times_is_unmasked(monkeypatch):
     np.testing.assert_array_equal(out, times)  # no condition mask applied
     mv._get_mua_full_times.cache_clear()
 
-
-def test_load_translated_mua_offs_rejects_bad_source():
-    with pytest.raises(ValueError, match="off_source"):
-        mv._load_translated_mua_offs(
-            "S", "imec0", "M2", "Early.REC.NREM", "llas",
-            off_source="nonsense", source_config=None, stack_times_flat=None,
-        )

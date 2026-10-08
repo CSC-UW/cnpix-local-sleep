@@ -1,10 +1,7 @@
-"""Add bandpower statistics to aggregated OFF period parquet files.
+"""Add bandpower statistics to an OFF period DataFrame.
 
-This module adds per-OFF-period bandpower summary statistics (total, mean,
-median, max power) to the LLAS, CLAS, and BLAS parquet files produced by
-``aggregate_experiment_offs.do_experiment()``.
-
-Run this AFTER ``aggregate_experiment_offs.do_experiment()`` has completed.
+Per-OFF-period bandpower summary statistics (total, mean, median, max power)
+attached via :func:`add_bandpower_columns`.
 
 Each bandpower spec (band_name, bipolar, kind) and transform (log, zlog)
 produces 4 columns (total, mean, median, max). With 2 bands and 2
@@ -19,7 +16,6 @@ import scipy.stats
 import xarray as xr
 
 from cnpix_local_sleep import files, hyp
-from cnpix_local_sleep.morphological.mua import files as morphological_files
 
 
 def add_interval_power_stats(
@@ -112,10 +108,6 @@ def do_band(
 _BANDPOWER_SPECS = [("delta", True, "inst"), ("eta", True, "inst")]
 """Bandpower specifications to compute: (band_name, bipolar, kind)."""
 
-_MERGE_KEYS = ["subject", "probe", "structure", "start_time", "end_time"]
-"""Columns that uniquely identify an OFF period across parquet files."""
-
-
 def _get_bandpower_columns(df: pd.DataFrame) -> list[str]:
     """Return column names added by bandpower processing."""
     prefixes = ("total_", "mean_", "median_", "max_")
@@ -134,10 +126,8 @@ def add_bandpower_columns(offs: pd.DataFrame) -> pd.DataFrame:
     Groups OFFs by (subject, probe, structure), loads bandpower zarrs for each
     group, and computes per-OFF power statistics via ``do_band``.
 
-    This is the reusable kernel behind :func:`do_experiment`; callers that
-    already hold an OFF DataFrame (e.g. full-48h OFFs assembled in a notebook)
-    can attach the same bandpower columns directly instead of round-tripping
-    through the LLAS/CLAS/BLAS parquets.
+    Callers that hold an OFF DataFrame (e.g. full-48h OFFs assembled in a
+    notebook) attach the bandpower columns directly.
 
     Parameters
     ----------
@@ -174,43 +164,3 @@ def add_bandpower_columns(offs: pd.DataFrame) -> pd.DataFrame:
         parts.append(group_df)
 
     return pd.concat(parts).sort_index()
-
-
-def do_experiment():
-    """Add bandpower statistics to LLAS, CLAS, and BLAS OFF parquet files.
-
-    Computes bandpower columns on LLAS (the superset), then transfers them to
-    CLAS and BLAS via merge to avoid redundant bandpower I/O.
-    """
-    # Step 1: Compute bandpower columns on LLAS (superset of all OFFs)
-    llas_path = morphological_files.get_path("llas_offs.parquet")
-    print(f"Loading {llas_path.name}...")
-    llas = pd.read_parquet(llas_path)
-
-    print("Adding bandpower columns to LLAS OFFs...")
-    llas = add_bandpower_columns(llas)
-
-    print(f"Saving {llas_path.name}...")
-    llas.to_parquet(llas_path)
-
-    # Step 2: Transfer bandpower columns to CLAS and BLAS via merge
-    bp_cols = _get_bandpower_columns(llas)
-    llas_bp = llas[_MERGE_KEYS + bp_cols]
-
-    for name in ["clas", "blas"]:
-        path = morphological_files.get_path(f"{name}_offs.parquet")
-        print(f"Loading {path.name}...")
-        offs = pd.read_parquet(path)
-
-        # Drop existing bandpower columns for idempotency
-        existing_bp_cols = _get_bandpower_columns(offs)
-        if existing_bp_cols:
-            offs = offs.drop(columns=existing_bp_cols)
-
-        print(f"Merging bandpower columns into {name.upper()} OFFs...")
-        offs = offs.merge(llas_bp, on=_MERGE_KEYS, how="left")
-
-        print(f"Saving {path.name}...")
-        offs.to_parquet(path)
-
-    print("Done.")

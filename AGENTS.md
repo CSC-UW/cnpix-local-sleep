@@ -53,11 +53,11 @@ Other users who clone this repository are not expected (and do not need) to have
 
 | Script | Covers |
 | --- | --- |
-| `off-analysis` | Post-detection pipeline steps: postprocess, aggregate, plot, bandpower, the `export-*` subcommands, and `publish-release-data`. Not a detection method. |
-| `morphological-offs` | `detect-offs` / `detect-offs-full` |
+| `off-analysis` | Post-detection pipeline steps: bandpower, `cross-structure-offs`, the `export-*` subcommands, and `publish-release-data`. Not a detection method. |
+| `morphological-offs` | `detect-offs-full` |
 | `unit-based-offs` | `detect` / `detect-experiment` / `detect-banded` / `detect-banded-experiment` |
 
-The dev-only commands (`offproj-dev`, `harding-offs`) live in `offproj`.
+The dev-only commands (`offproj-dev`) live in `offproj`.
 
 ## Layout
 
@@ -79,7 +79,7 @@ Notebooks are committed without outputs.
 | `files.py` | `get_path()`: parametric path construction with `DEFAULT_PATH_SCHEMA`; `get_r_offp_extdata_dir()` |
 | `channel_anatomy.py` | Which structure and layer each probe channel sits in (htsv tables, not the atlas) |
 | `trace_io.py` | Open / scale / smooth the zarr recordings, including the annotation-grid reader |
-| `off_tables.py` | The `Off` row schema, the per-condition OFF loader, and the LLAS/CLAS/BLAS filters (single point of truth) |
+| `off_tables.py` | The `Off` row schema and the LLAS/CLAS/BLAS filters (single point of truth) |
 | `hyp.py` | Hypnogram utilities |
 | `plots.py` | Plotting utilities, including the condition and LLAS/CLAS/BLAS palettes |
 | `units.py` | Unit/spike train utilities |
@@ -87,7 +87,7 @@ Notebooks are committed without outputs.
 | `sps_conf.py` | Subject-probe-structure config (cross-method; bundled CSV in `data/`) |
 | `release_data.py` | The GitHub Release hosting the event-level OFF tables: fetch, cache, publish |
 | `morphological/` | The morphological method: `common.py` (`MorphologicalSourceConfig`), `morphology.py` (the detection kernel), `detect.py`, `detect_full.py`, `manual_validation.py`, `full48h_eval.py`, shared CLI/types, `mua/` subpackage |
-| `morphological/pipeline/` | Postprocess, aggregate, and the `export-*` implementations |
+| `morphological/pipeline/` | Postprocessing kernels, full-48h aggregation, and the `export-*` implementations |
 | `unit_based/` | The spatially tiled unit-based method: `banded.py`, `banded_eval.py`, `banded_plots.py` |
 | `evaluation/` | Manual OFF labels, grid geometry, rasterizer and metric kernels, plus the cross-method drivers behind Table 1: `head_to_head.py`, `banded_vs_morphological.py` |
 | `stacks/` | OFF period stacking and the napari annotation grid |

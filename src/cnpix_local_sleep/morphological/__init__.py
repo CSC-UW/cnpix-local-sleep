@@ -21,21 +21,21 @@ MUA trace preprocessing lives in ``cnpix.mua``.
 Submodules:
     mua: files module, trace reader, SOURCE_CONFIG
     common: MorphologicalSourceConfig
-    detect: Threshold computation and OFF detection orchestration
+    detect: per-bin threshold and laminar-area kernels
     detect_full: full-recording (48 h) detection
     morphology: the binary-mask image-morphology kernels
     manual_validation: per-structure scoring against manual OFF labels
     full48h_eval: experiment-wide scoring of the full-48h OFFs vs manual labels
     detection_opts: Load the YAML detection parameter template
     types: DetectionOpts TypedDict and validation
-    pipeline: postprocessing, aggregation and the manuscript export drivers
+    pipeline: postprocessing kernels, full-48h aggregation and the manuscript export drivers
     cli, analysis_cli: Click CLI entry points
 
 Cross-method scoring (this detector against another's output rather than
 against manual labels) lives in ``cnpix_local_sleep.evaluation``.
 
 Heavy submodules must be imported directly to avoid slow import times:
-    from cnpix_local_sleep.morphological import detect
+    from cnpix_local_sleep.morphological import detect_full
 """
 
 __all__: list[str] = []

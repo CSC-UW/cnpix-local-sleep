@@ -22,16 +22,16 @@ from cnpix_local_sleep.unit_based import banded_eval
 
 def rasterize_morphological_masks(
     subject, probe, structure, condition, label_shape, *,
-    filter_name="clas", off_source="full48h",
+    filter_name="clas",
 ):
     """Rasterize morphological spatial OFFs onto the stack grid using their TRUE per-pixel
     masks (not bounding boxes).
 
-    Loads the OFFs + ``off_label_indices`` (``time_ixs``/``chan_ixs``) for the requested
-    ``off_source`` (``"full48h"`` default, or ``"per_condition"``) via the shared loader
+    Loads the whole-recording OFFs + ``off_label_indices`` (``time_ixs``/``chan_ixs``)
+    via the shared loader
     :func:`cnpix_local_sleep.morphological.manual_validation._load_translated_mua_offs` (which applies the
     LAS ``filter_name``, remaps the MUA detection sample indices to stack-grid samples,
-    and (for full-48h) restricts to the condition), then paints each OFF's exact pixels
+    and restricts to the condition), then paints each OFF's exact pixels
     via :func:`cnpix_local_sleep.morphological.manual_validation._build_morphological_label_array`. Returns an
     int32 ``(n_chunks, n_rows, spc)`` array (0 = background).
     """
@@ -42,7 +42,7 @@ def rasterize_morphological_masks(
     ts_flat = grid.load_stack_times_flat(subject, probe, condition)
     offs = mv._load_translated_mua_offs(
         subject, probe, structure, condition, filter_name,
-        off_source=off_source, source_config=morphological_mua.SOURCE_CONFIG,
+        source_config=morphological_mua.SOURCE_CONFIG,
         stack_times_flat=ts_flat,
     )
     if not len(offs):
@@ -80,7 +80,6 @@ def evaluate_banded_vs_morphological(
     footprint: str = "union",
     filter_name: str = "clas",
     mua_raster=None,
-    off_source: str = "full48h",
     restrict_to_structure: bool = True,
     row_mask: np.ndarray | None = None,
     manual_version: str = "latest",
@@ -91,8 +90,7 @@ def evaluate_banded_vs_morphological(
     scores banded (predicted) against morphological (reference). The morphological raster uses
     its true per-pixel masks (:func:`rasterize_morphological_masks`), not bounding boxes;
     pass a precomputed ``mua_raster`` to avoid recomputing it (it is structure-, not
-    config-, dependent). ``off_source`` selects the morphological OFF source
-    (``"full48h"``/``"per_condition"``). ``footprint`` selects the banded representation
+    config-, dependent). ``footprint`` selects the banded representation
     (``"union"`` of band boxes, default, or ``"bbox"``). Pass an explicit ``row_mask`` to
     score over an arbitrary row set.
     """
@@ -106,7 +104,7 @@ def evaluate_banded_vs_morphological(
     if mua_raster is None:
         mua_raster = rasterize_morphological_masks(
             subject, probe, structure, condition, manual.shape,
-            filter_name=filter_name, off_source=off_source,
+            filter_name=filter_name,
         )
     banded_raster, used = banded_eval.banded_raster(
         off_frame, off_df, all_bands_on_off_df, footprint,
@@ -125,7 +123,7 @@ def evaluate_banded_vs_morphological(
         "condition": condition,
         "source": "banded-unit-based",
         "reference": f"morphological:{filter_name}",
-        "mua_off_source": off_source,
+        "mua_off_source": "full48h",
         "footprint": used,
         "subject": subject,
         "probe": probe,

@@ -1,18 +1,14 @@
 """What an OFF row is, how to load tables of them, and the named LAS filters.
 
-Holds the :class:`Off` row schema shared by every detection method, the
-per-condition OFF-table loader, and the single point of truth for the
-LLAS/CLAS/BLAS column-threshold filters.
+Holds the :class:`Off` row schema shared by every detection method and the
+single point of truth for the LLAS/CLAS/BLAS column-threshold filters.
 """
 
 from __future__ import annotations
 
 from typing import TypedDict
 
-import numpy as np
 import pandas as pd
-
-from cnpix_local_sleep import const, sps_conf
 
 
 class Off(TypedDict):
@@ -91,125 +87,6 @@ class Off(TypedDict):
     infra_area: int
     max_supra_nchans: int
     max_infra_nchans: int
-
-def load_subject_offs(
-    subject: str,
-    filter_name: str | None = None,
-    *,
-    files_module,
-    with_label_indices: bool = False,
-    convert_label_indices: bool = False,
-) -> pd.DataFrame:
-    """Load all cortical, from-value-threshold OFF periods for a subject.
-
-    Discovers (probe, structure) combos via ``sps_conf`` and iterates over
-    all ``CONDITIONS``, loading individual parquet files produced by the
-    detection pipeline.
-
-    Parameters
-    ----------
-    subject : str
-        Subject identifier (e.g. ``"CNPIX15-Claude"``).
-    files_module
-        Files module that provides ``get_offs_path`` and
-        ``get_off_label_indices_path`` -- e.g. ``cnpix_local_sleep.morphological.mua.files``
-        for morphological detections.
-    filter_name : str | None
-        Name of a filter preset to apply (e.g. ``"llas"``, ``"clas"``,
-        ``"blas"``, ``"collapsed"``, ``"spatial_by_layer"``). See
-        ``NAMED_FILTERS`` for available presets. If None, no filtering
-        is applied.
-    with_label_indices : bool
-        If True, merge label-index columns (``time_ixs``, ``chan_ixs``)
-        from the label-indices parquet files.
-    convert_label_indices : bool
-        If True (requires ``with_label_indices=True``), convert
-        ``time_ixs`` to timestamps and ``chan_ixs`` to depths by
-        indexing into the coordinate arrays of the preprocessed
-        DataArray. The resulting columns are named ``times`` and
-        ``depths``, and the original index columns are dropped.
-
-    Returns
-    -------
-    pd.DataFrame
-        Concatenated OFF periods with ``probe`` and ``condition`` as
-        ordered categoricals. Empty DataFrame if no files are found.
-    """
-    fm = files_module
-
-    spsl = sps_conf.get_subject_probe_structure_list(
-        method=fm.METHOD,
-        exclude_thalamus=True,
-        exclude_striatum=True,
-        exclude_other=True,
-    )
-    spsl = [(s, p, st) for s, p, st in spsl if s == subject]
-
-    offs = []
-    for subj, probe, structure in spsl:
-        for condition in const.CORE_CONDITIONS:
-            pathspec = {
-                "subject": subj,
-                "probe": probe,
-                "structure": structure,
-                "threshold_group": None,
-                "condition": condition,
-            }
-            offs_path = fm.get_offs_path(**pathspec)
-            if offs_path.exists():
-                _offs = (
-                    pd.read_parquet(offs_path)
-                    .assign(**pathspec)
-                    .dropna(axis=1, how="all")
-                )
-                if with_label_indices:
-                    lbls_path = fm.get_off_label_indices_path(**pathspec)
-                    if not lbls_path.exists():
-                        print(f"Warning: label indices not found at {lbls_path}")
-                        continue
-                    _lbls = pd.read_parquet(lbls_path)
-                    _offs = _offs.merge(
-                        _lbls[["label", "time_ixs", "chan_ixs"]],
-                        on="label",
-                        how="left",
-                    )
-                    if convert_label_indices:
-                        from cnpix_local_sleep import trace_io
-
-                        da = trace_io.open_preprocessed_traces_as_xarray(
-                            subj,
-                            probe,
-                            structure,
-                            condition,
-                            apply_detection_channel_mask=True,
-                        )
-                        _time_coords = da.time.values
-                        _y_coords = da.y.values
-                        _offs["times"] = _offs["time_ixs"].map(
-                            lambda ixs: _time_coords[np.asarray(ixs)]
-                        )
-                        _offs["depths"] = _offs["chan_ixs"].map(
-                            lambda ixs: _y_coords[np.asarray(ixs)]
-                        )
-                        _offs = _offs.drop(columns=["time_ixs", "chan_ixs"])
-                offs.append(_offs)
-
-    if not offs:
-        return pd.DataFrame()
-
-    offs = pd.concat(offs, ignore_index=True)
-
-    offs["probe"] = pd.Categorical(
-        offs["probe"], categories=["imec0", "imec1"], ordered=True
-    )
-    offs["condition"] = pd.Categorical(
-        offs["condition"], categories=list(const.CONDITIONS), ordered=True
-    )
-
-    if filter_name is not None:
-        offs = filter_offs(offs, filter_name)
-
-    return offs
 
 IMPLAUSIBLE_OFF_DURATION_S: float = 0.6
 
@@ -294,13 +171,12 @@ def off_filter_mask(offs: pd.DataFrame, filter_name: str) -> pd.Series:
 def filter_offs(offs: pd.DataFrame, filter_name: str | None) -> pd.DataFrame:
     """Apply a named LAS filter (``llas``/``clas``/``blas``/...) to an OFF frame.
 
-    Single point of truth for the column-threshold OFF filters used by both the
-    per-condition loader (:func:`load_subject_offs`) and the full-recording
-    true-mask path (``morphological.manual_validation``). ``span_rel2max`` is derived from
-    ``span``/``max_span`` when absent; the full-48h ``offs.parquet`` ships without it
-    (see ``morphological.pipeline.postprocess_offs``), so the BLAS filter works on either the
-    per-condition or the full-recording schema. Returns a new, index-reset frame;
-    ``filter_name=None`` is a passthrough.
+    Single point of truth for the column-threshold OFF filters used by the
+    full-48h aggregation and the true-mask path (``morphological.manual_validation``).
+    ``span_rel2max`` is derived from ``span``/``max_span`` when absent; the full-48h
+    ``offs.parquet`` ships without it (see ``morphological.pipeline.postprocess_offs``),
+    so the BLAS filter works on either the raw or the postprocessed schema. Returns a
+    new, index-reset frame; ``filter_name=None`` is a passthrough.
     """
     if filter_name is None:
         return offs.reset_index(drop=True)

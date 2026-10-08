@@ -1,51 +1,14 @@
-"""Postprocess OFF period parquet files with derived columns.
+"""Derived OFF columns (clade, A/P group, normalized features, laminar concentrations).
 
-This pipeline step runs after detection and before aggregation. It adds
-per-file metadata columns (clade, A/P group, normalized features) so that
-aggregation can simply collect the files without recomputing these values.
-
-Only operates on cortical structures.
+Applied in memory by the full-48h aggregation before filtering.
 """
 
 from __future__ import annotations
 
-import types
-
 import pandas as pd
 
-from cnpix_local_sleep import atlas, const
-from cnpix_local_sleep.morphological.mua import files
+from cnpix_local_sleep import atlas
 from cnpix_local_sleep import sps_conf
-from cnpix_local_sleep.morphological.pipeline import utils
-
-
-def postprocess_offs_file(
-    offs_path: str,
-    structure: str,
-    *,
-    subject: str | None = None,
-    probe: str | None = None,
-) -> None:
-    """Add derived columns to an OFF parquet file in-place.
-
-    Columns added:
-        - ``clade``: Anatomical clade (e.g. "Cx").
-        - ``AP.Coord``: Anterior-posterior axis coordinate.
-        - ``Cx.AP.group``: Anterior-posterior bin label (cortical only).
-        - ``span_rel2max``: span / max_span.
-        - ``area_rel2span``: area / max_span.
-
-    Args:
-        offs_path: Path to offs.parquet file.
-        structure: Brain structure acronym.
-        subject: Subject identifier. Needed for the per-combo supra/infra
-            orientation correction (see :func:`laminar_concentrations`) when
-            *offs* lacks subject/probe/structure columns.
-        probe: Probe identifier. See *subject*.
-    """
-    offs = pd.read_parquet(offs_path)
-    postprocess_offs_frame(offs, structure, subject=subject, probe=probe)
-    offs.to_parquet(offs_path, index=False)
 
 
 def postprocess_offs_frame(
@@ -57,11 +20,13 @@ def postprocess_offs_frame(
 ) -> pd.DataFrame:
     """Add the derived postprocessing columns to *offs* in place.
 
-    This is the in-memory core of :func:`postprocess_offs_file`; callers that
-    already hold an OFF DataFrame (e.g. full-48h re-aggregation) use this
-    directly instead of round-tripping through a parquet file. Returns the
-    same DataFrame for convenience. See :func:`postprocess_offs_file` for the
-    list of columns added.
+    Returns the same DataFrame for convenience. Columns added:
+        - ``clade``: Anatomical clade (e.g. "Cx").
+        - ``AP.Coord``: Anterior-posterior axis coordinate.
+        - ``Cx.AP.group``: Anterior-posterior bin label (cortical only).
+        - ``span_rel2max``: span / max_span.
+        - ``area_rel2span``: area / max_span.
+        - ``onset_offset_wedge``: onset_slope - offset_slope.
 
     *subject*/*probe* (together with *structure*) identify the combo for the
     per-combo supra/infra orientation correction used by
@@ -167,56 +132,3 @@ def laminar_concentrations(
     corrected_supra = supra_conc.where(~flipped, infra_conc)
     corrected_infra = infra_conc.where(~flipped, supra_conc)
     return corrected_supra, corrected_infra
-
-
-def do_structure(
-    subject: str,
-    probe: str,
-    structure: str,
-    files_module: types.ModuleType | None = None,
-) -> None:
-    """Postprocess OFFs for all conditions in a structure.
-
-    Args:
-        subject: Subject identifier.
-        probe: Probe identifier.
-        structure: Brain structure name.
-        files_module: Module providing ``get_offs_path()``. Defaults to
-            ``cnpix_local_sleep.morphological.mua.files``.
-    """
-    fm = files if files_module is None else files_module
-    for condition in const.CORE_CONDITIONS:
-        offs_path = fm.get_offs_path(
-            subject=subject,
-            probe=probe,
-            structure=structure,
-            condition=condition,
-            threshold_group=None,
-        )
-        if offs_path.exists():
-            utils.log_step(
-                "Postprocessing OFFs",
-                condition=condition,
-            )
-            postprocess_offs_file(
-                str(offs_path), structure, subject=subject, probe=probe
-            )
-
-
-def do_experiment(files_module: types.ModuleType | None = None) -> None:
-    """Postprocess OFFs for all cortical structures in the experiment.
-
-    Args:
-        files_module: Module providing ``get_offs_path()``. Defaults to
-            ``cnpix_local_sleep.morphological.mua.files``.
-    """
-    fm = files if files_module is None else files_module
-    spsl_cx = sps_conf.get_subject_probe_structure_list(
-        method=fm.METHOD,
-        exclude_thalamus=True,
-        exclude_striatum=True,
-        exclude_other=True,
-    )
-    for subject, probe, structure in spsl_cx:
-        print(f"Postprocessing OFFs: {subject}, {probe}, {structure}")
-        do_structure(subject, probe, structure, files_module=fm)

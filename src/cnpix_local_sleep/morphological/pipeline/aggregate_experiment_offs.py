@@ -7,7 +7,6 @@ from ecephys import utils
 from scipy import stats
 
 from cnpix_local_sleep import atlas, const, hyp
-from cnpix_local_sleep.const import CONDITIONS
 from cnpix_local_sleep.morphological.mua import files as files
 from cnpix_local_sleep import off_tables
 from cnpix_local_sleep import sps_conf
@@ -22,57 +21,13 @@ _POSTPROCESSED_COLUMNS = [
 ]
 
 
-def _collect_all_offs() -> pd.DataFrame:
-    """Collect all OFF period dataframes from existing files.
-
-    Loads (subject, probe, structure) combos from
-    ``subject_probe_structure_config.csv``, finds all relevant OFFs on disk,
-    and concatenates into a single dataframe.
-
-    No filters based on e.g. span or duration are applied here.
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame of all OFF periods across all subjects, probes, structures,
-        threshold groups, and conditions.
-    """
-
-    offs = []
-
-    spsl_cx = sps_conf.get_subject_probe_structure_list(
-        method=files.METHOD,
-        exclude_thalamus=True,
-        exclude_striatum=True,
-        exclude_other=True,
-    )
-    for subject, probe, structure in spsl_cx:
-        for condition in CONDITIONS:
-            pathspec = {
-                "subject": subject,
-                "probe": probe,
-                "structure": structure,
-                "threshold_group": None,
-                "condition": condition,
-            }
-            fpath = files.get_offs_path(**pathspec)
-            if fpath.exists():
-                _offs = (
-                    pd.read_parquet(fpath).assign(**pathspec).dropna(axis=1, how="all")
-                )
-                offs.append(_offs)
-
-    return _finalize_collected_offs(offs)
-
-
 def _finalize_collected_offs(
     frames: list[pd.DataFrame], condition_subset: bool = True
 ) -> pd.DataFrame:
     """Concatenate per-(spc) OFF frames and apply shared cleanup + categoricals.
 
-    Shared by :func:`_collect_all_offs` (per-condition detection files) and
-    :func:`_collect_all_offs_from_full` (48h files subset by condition) so both
-    collection paths produce an identically-typed frame for aggregation.
+    Used by :func:`_collect_all_offs_from_full` (48h files subset by condition)
+    to produce a consistently-typed frame for aggregation.
 
     When ``condition_subset=False`` the frames carry no ``condition`` column
     (whole-recording detection that was never tagged/subset), so the ordered
@@ -138,11 +93,10 @@ def _finalize_collected_offs(
 def _collect_all_offs_from_full(condition_subset: bool = True) -> pd.DataFrame:
     """Collect OFFs from the full-48h detection, optionally subset to conditions.
 
-    Mirrors :func:`_collect_all_offs` but sources from the condition-agnostic
-    full-recording ``offs.parquet`` (``mua.files.get_full_offs_path``) instead
-    of the per-condition detection files. Postprocessing columns (clade, A/P
-    group, normalized features) are added in memory so the downstream
-    filter/aggregate steps are identical to the canonical path.
+    Sources from the condition-agnostic full-recording ``offs.parquet``
+    (``mua.files.get_full_offs_path``). Postprocessing columns (clade, A/P
+    group, normalized features) are added in memory before the downstream
+    filter/aggregate steps.
 
     When ``condition_subset=True`` (default) each OFF is tagged with the core
     condition whose statistical hypnogram covers its ``start_time`` (the windows
@@ -561,11 +515,10 @@ def _resolve_out_path(
 ) -> pathlib.Path:
     """Resolve an output path for an aggregation artifact.
 
-    When ``output_dir`` is ``None`` (the default for :func:`do_experiment`), the
-    canonical NFS path is used via ``mua.files.get_path`` (``method=morphological``).
-    When ``output_dir`` is given (e.g. :func:`do_experiment_full` writing into
-    ``r-offp/inst/extdata``), the file is written there as a flat ``output_dir /
-    filename``, never on NFS.
+    When ``output_dir`` is ``None``, the NFS path is used via
+    ``mua.files.get_path`` (``method=morphological``). When ``output_dir`` is
+    given (:func:`do_experiment_full` writing into ``r-offp/inst/extdata``), the
+    file is written there as a flat ``output_dir / filename``, never on NFS.
     """
     if output_dir is None:
         return files.get_path(filename)
@@ -636,75 +589,6 @@ def _save_filtered_category(
     summarized_by_quartile.to_parquet(quartile_path)
 
 
-def do_experiment(grouped_boxcox: bool = False):
-    """Aggregate cortical spatial OFF periods for the project/experiment.
-
-    Produces three filtered categories of OFFs (LLAS, CLAS, BLAS), each saved
-    as both individual OFF periods and summarized metrics.
-
-    Parameters
-    ----------
-    grouped_boxcox : bool
-        If True, also fit separate Box-Cox lambdas per (subject, probe,
-        structure) group, producing ``grouped_boxcox_*`` columns alongside
-        the global ``boxcox_*`` columns. If False (default), only global
-        lambdas are fitted.
-
-    Pipeline:
-
-    1. Collect raw OFFs from disk (expects postprocessed columns from
-       ``postprocess-offs``).
-    2. Apply additional exclusions based on missing data.
-    3. Retain only cortical (Cx) OFFs (using ``clade`` from postprocessing).
-    4. Apply LLAS filters (most liberal).
-    5. For each category (LLAS, CLAS, BLAS):
-        - Apply category-specific filters (CLAS from LLAS, BLAS from CLAS).
-        - Apply global Box-Cox transformations (and grouped, if requested).
-        - Save individual OFFs and summarized metrics.
-
-    Outputs:
-        - "llas_offs.parquet", "summarized_llas_offs.parquet"
-        - "clas_offs.parquet", "summarized_clas_offs.parquet"
-        - "blas_offs.parquet", "summarized_blas_offs.parquet"
-        - "summarized_{llas,clas,blas}_offs_by_min_trace_quartile.parquet"
-        - "condition_durations.parquet"
-    """
-    print("Collecting all OFFs...")
-    offs = _collect_all_offs()
-
-    missing = [c for c in _POSTPROCESSED_COLUMNS if c not in offs.columns]
-    if missing:
-        raise ValueError(
-            f"Missing postprocessed columns: {missing}. "
-            "Run `postprocess-offs` before `aggregate-offs`."
-        )
-
-    print("Applying additional exclusions...")
-    offs = _apply_additional_exclusions(offs)
-
-    print("Retaining cortical OFFs...")
-    offs = offs.loc[offs["clade"] == "Cx"].reset_index(drop=True)
-
-    print("Applying LLAS filters...")
-    llas_offs = _apply_filters(offs, off_tables.llas_filters)
-
-    print("Getting condition durations...")
-    durs = _get_condition_durations(llas_offs)
-    condition_durations_path = files.get_path("condition_durations.parquet")
-    condition_durations_path.parent.mkdir(parents=True, exist_ok=True)
-    durs.to_parquet(condition_durations_path)
-
-    _save_filtered_category("llas", llas_offs, durs, grouped_boxcox=grouped_boxcox)
-
-    print("Applying CLAS filters...")
-    clas_offs = _apply_filters(llas_offs, off_tables.clas_filters)
-    _save_filtered_category("clas", clas_offs, durs, grouped_boxcox=grouped_boxcox)
-
-    print("Applying BLAS filters...")
-    blas_offs = _apply_filters(clas_offs, off_tables.blas_filters)
-    _save_filtered_category("blas", blas_offs, durs, grouped_boxcox=grouped_boxcox)
-
-
 def do_experiment_full(
     output_dir: pathlib.Path | str,
     *,
@@ -713,9 +597,8 @@ def do_experiment_full(
 ) -> None:
     """Aggregate full-48h cortical OFFs and write parity parquets to ``output_dir``.
 
-    The full-48h counterpart of :func:`do_experiment`. Instead of the
-    per-condition detection files, it sources OFFs from the whole-recording
-    state-aware detection subset to the six statistical conditions
+    Sources OFFs from the whole-recording state-aware detection subset to the
+    six statistical conditions
     (:func:`_collect_cortical_48h`), and writes the LLAS/CLAS/BLAS artifacts as
     flat files under ``output_dir`` with a ``name_prefix`` (default
     ``"full48h_"``), e.g. ``r-offp/inst/extdata`` so the R package can consume
@@ -846,8 +729,7 @@ def export_full48h_exclusive_offs(
 def _collect_cortical_48h() -> pd.DataFrame:
     """Collect + exclude + cortex-restrict the full-48h condition-subset OFFs.
 
-    The shared, process-memoized base for the in-memory loaders below. Mirrors
-    the first three steps of :func:`do_experiment` for the full-48h source
+    The shared, process-memoized base for the in-memory loaders below
     (:func:`_collect_all_offs_from_full` -> :func:`_apply_additional_exclusions`
     -> cortex filter). Derived fresh from the raw whole-recording detection, so
     it can never drift from a stale on-disk artifact. Requires NFS.

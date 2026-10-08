@@ -1,8 +1,8 @@
-"""Click-based CLI for shared unit-free pipeline commands.
+"""Click-based CLI for the post-detection pipeline commands.
 
-Morphological-specific detection commands (detect-offs, detect-offs-full) are in
-``cnpix_local_sleep.morphological.cli`` (entry point: ``morphological-offs``). MUA trace
-preprocessing is in ``cnpix.mua`` (entry point: ``cnpix-mua``).
+Detection (``detect-offs-full``) is in ``cnpix_local_sleep.morphological.cli``
+(entry point: ``morphological-offs``). MUA trace preprocessing is in ``cnpix.mua``
+(entry point: ``cnpix-mua``).
 """
 
 from pathlib import Path
@@ -69,9 +69,9 @@ def run_on_structures(subject, probe, structures, func, **kwargs):
 )
 @click.pass_context
 def main(ctx, no_log: bool, log_dir: str):
-    """Shared unit-free OFF period pipeline commands.
+    """Post-detection OFF period pipeline commands.
 
-    For morphological-specific detection commands, use ``morphological-offs``.
+    For detection, use ``morphological-offs``.
     """
     ctx.ensure_object(dict)
     ctx.obj["logger"] = PipelineLogger(
@@ -80,63 +80,7 @@ def main(ctx, no_log: bool, log_dir: str):
     )
 
 
-# -------------------- Postprocessing --------------------
-
-
-@main.command("postprocess-offs")
-@click.argument("subject", required=False)
-@click.argument("probe", required=False)
-@click.argument("structure", required=False)
-@click.option(
-    "--descendants-of",
-    multiple=True,
-    default=["Cx"],
-    help="Ancestor structures to include when structure is omitted.",
-)
-def postprocess_offs(
-    subject: str | None,
-    probe: str | None,
-    structure: str | None,
-    descendants_of: tuple[str, ...],
-):
-    """Postprocess OFF parquet files with derived columns.
-
-    Adds clade, A/P group and normalized features to each offs.parquet file
-    in-place.
-
-    Can be run at experiment level (no arguments), or for a specific
-    subject/probe/structure.
-    """
-    from cnpix_local_sleep.morphological.pipeline import postprocess_offs as pp_module
-
-    if subject is None:
-        click.echo("Postprocessing OFFs (experiment-wide)")
-        pp_module.do_experiment()
-    else:
-        if probe is None:
-            raise click.UsageError("probe is required when subject is given")
-        structures = resolve_structures(subject, probe, structure, descendants_of)
-        click.echo(f"Postprocessing OFFs for {subject}, {probe}")
-        run_on_structures(subject, probe, structures, pp_module.do_structure)
-
-
-# -------------------- Aggregation --------------------
-
-
-@main.command("aggregate-offs")
-@click.option(
-    "--grouped-boxcox",
-    is_flag=True,
-    help="Apply grouped Box-Cox transformations (by subject, probe, structure).",
-)
-def aggregate_offs(grouped_boxcox: bool):
-    """Aggregate experiment-level OFF metrics."""
-    from cnpix_local_sleep.morphological.pipeline import aggregate_experiment_offs
-
-    click.echo("Aggregating experiment-level OFF metrics")
-    aggregate_experiment_offs.do_experiment(grouped_boxcox=grouped_boxcox)
-
-
+# -------------------- Exports --------------------
 
 
 @main.command("export-full48h-offs")
@@ -646,34 +590,11 @@ def extract_inst_bandpowers(
     )
 
 
-# -------------------- Experiment-level plots --------------------
-
-
-@main.command("plot-offs-vs-time")
-def plot_offs_vs_time():
-    """Plot OFF period rates over time with power overlays."""
-    from cnpix_local_sleep.morphological import mua
-    from cnpix_local_sleep.morphological.pipeline import plot_offs_vs_time as povt
-
-    click.echo("Plotting OFFs vs time (morphological)")
-    povt.do_project(mua.SOURCE_CONFIG)
-
-
-# -------------------- Structure-level plots --------------------
-
-
 # -------------------- Cross-structure analysis --------------------
 
 
 @main.command("cross-structure-offs")
 @click.argument("subject", required=False)
-@click.option(
-    "--off-source",
-    type=click.Choice(["morphological-full48h", "morphological"]),
-    default="morphological-full48h",
-    show_default=True,
-    help="OFF source to analyze.",
-)
 @click.option(
     "--n-shuffles", default=200, type=int, help="Number of jitter shuffles."
 )
@@ -688,7 +609,6 @@ def plot_offs_vs_time():
 )
 def cross_structure_offs(
     subject: str | None,
-    off_source: str,
     n_shuffles: int,
     overwrite: bool,
     no_jitter: bool,
@@ -697,30 +617,23 @@ def cross_structure_offs(
     """Analyze cross-structure OFF period relationships.
 
     If SUBJECT is provided, runs for that subject only. Otherwise, runs
-    for all subjects with OFFs in more than one cortical region.
+    for all subjects with OFFs in more than one cortical region. Reads the
+    full-48h morphological OFFs.
     """
     from cnpix_local_sleep.morphological.pipeline import cross_structure_offs as module
 
     if subject is None:
-        click.echo(
-            "Running cross-structure OFF analysis for all qualifying subjects "
-            f"(off_source={off_source})"
-        )
+        click.echo("Running cross-structure OFF analysis for all qualifying subjects")
         module.do_experiment(
-            off_source=off_source,
             n_shuffles=n_shuffles,
             overwrite=overwrite,
             no_jitter=no_jitter,
             no_legend=no_legend,
         )
     else:
-        click.echo(
-            f"Running cross-structure OFF analysis for {subject} "
-            f"(off_source={off_source})"
-        )
+        click.echo(f"Running cross-structure OFF analysis for {subject}")
         module.do_subject(
             subject,
-            off_source=off_source,
             n_shuffles=n_shuffles,
             overwrite=overwrite,
             no_jitter=no_jitter,

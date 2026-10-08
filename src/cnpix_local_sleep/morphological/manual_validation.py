@@ -1,18 +1,13 @@
 """Per-condition comparison of morphological detections against manual OFF labels.
 
 The method-agnostic pieces (manual-label loaders, instance-label QC,
-channel->row mapping, and the pixel/event metric kernels) now live in
+channel->row mapping, and the pixel/event metric kernels) live in
 ``cnpix_local_sleep.evaluation`` and are re-exported here for backward compatibility.
 This module retains the *morphological-specific* driver that rasterizes label indices
-(``time_ixs``/``chan_ixs``) into manual-label space and scores them. Both OFF
-sources are supported via the ``off_source`` argument and both use the true
-per-pixel masks (never bounding boxes):
-
-- ``off_source="per_condition"``: the per-condition ``offs.parquet`` (frozen,
-  pre-48h-optimization thresholds); ``time_ixs`` are condition-MUA sample indices.
-- ``off_source="full48h"`` (default): the whole-recording ``offs.parquet`` +
-  ``off_label_indices.parquet`` (re-optimized thresholds); ``time_ixs`` are
-  full-recording MUA sample indices, restricted to the condition by its hypnogram.
+(``time_ixs``/``chan_ixs``) into manual-label space and scores them, using the true
+per-pixel masks (never bounding boxes). OFFs come from the whole-recording
+``offs.parquet`` + ``off_label_indices.parquet``; ``time_ixs`` are full-recording
+MUA sample indices, restricted to the condition by its hypnogram.
 
 (``cnpix_local_sleep.morphological.full48h_eval`` also reads the full-48h offs but only as
 bounding boxes; use this module when you need true masks.)
@@ -50,31 +45,11 @@ compute_event_metrics = metrics.compute_event_metrics
 
 
 @functools.lru_cache(maxsize=4)
-def _get_mua_condition_times(subject: str, probe: str, condition: str) -> np.ndarray:
-    """Return condition-masked timestamps from the MUA zarr.
-
-    Loads only the time coordinate (traces stay lazy on disk), applies the same
-    ``hotfix_times`` filtering and condition masking that the detection pipeline
-    uses, then returns the resulting 1-D array of timestamps. Cached per
-    (subject, probe, condition) so a sweep over structures on a probe loads it once.
-    """
-    from cnpix.mua import files as mua_files
-
-    path = mua_files.get_mua_traces_path(subject, probe)
-    da = trace_io.open_si_zarr_recording_as_xarray(path)
-    hg = hyp.load_statistical_condition_hypnograms(subject, probe)[condition]
-    mask = hg.covers_time(da.time)
-    return da.time.values[mask]
-
-
-@functools.lru_cache(maxsize=4)
 def _get_mua_full_times(subject: str, probe: str) -> np.ndarray:
     """Return the FULL-recording (unmasked) MUA timestamps from the MUA zarr.
 
     The full-48h detection runs on the whole recording (``condition=None``), so its
-    ``time_ixs`` index into these unmasked timestamps; the condition-masked variant
-    above is exactly this array masked by the condition hypnogram. Cached per
-    (subject, probe).
+    ``time_ixs`` index into these unmasked timestamps. Cached per (subject, probe).
     """
     from cnpix.mua import files as mua_files
 
@@ -167,58 +142,21 @@ def _load_translated_mua_offs(
     condition: str,
     filter_name: str,
     *,
-    off_source: str,
     source_config: MorphologicalSourceConfig,
     stack_times_flat: np.ndarray | None = None,
 ) -> pd.DataFrame:
     """Load morphological OFFs with TRUE per-pixel masks and translate ``time_ixs`` into
     stack-grid flat sample indices (ready for :func:`_build_morphological_label_array`).
 
-    ``off_source``:
-
-    - ``"per_condition"``: per-condition ``offs.parquet`` via
-      :func:`cnpix_local_sleep.off_tables.load_subject_offs`; for ``morphological`` the
-      ``time_ixs`` are condition-MUA sample indices, translated via
-      :func:`_get_mua_condition_times`.
-    - ``"full48h"``: whole-recording ``offs.parquet`` + ``off_label_indices.parquet``
-      (per-structure paths), filtered by LAS (:func:`off_tables.filter_offs`) and
-      restricted to the condition by its hypnogram; for ``morphological`` the ``time_ixs``
-      are full-recording MUA sample indices, translated via :func:`_get_mua_full_times`.
-
-    Both paths return the true ``time_ixs``/``chan_ixs`` masks (never bounding boxes).
-    The ``time_ixs`` translation only applies to the ``morphological`` variant (the
-    ``tom-bugnon`` traces already share the stack timebase).
+    Reads the whole-recording ``offs.parquet`` + ``off_label_indices.parquet``
+    (per-structure paths), filtered by LAS (:func:`off_tables.filter_offs`) and
+    restricted to the condition by its hypnogram; for ``morphological`` the ``time_ixs``
+    are full-recording MUA sample indices, translated via :func:`_get_mua_full_times`.
     """
-    if off_source not in ("per_condition", "full48h"):
-        raise ValueError(
-            f"off_source must be 'per_condition' or 'full48h', got {off_source!r}"
-        )
     is_mua = source_config.variant == "morphological"
     if is_mua and stack_times_flat is None:
         raise ValueError("stack_times_flat is required for the morphological variant")
 
-    if off_source == "per_condition":
-        offs = off_tables.load_subject_offs(
-            subject,
-            filter_name=filter_name,
-            with_label_indices=True,
-            files_module=source_config.files_module,
-        )
-        offs = offs[
-            (offs["probe"] == probe)
-            & (offs["structure"] == structure)
-            & (offs["condition"] == condition)
-        ].reset_index(drop=True)
-        offs = _normalize_label_indices(offs)
-        if is_mua and len(offs):
-            assert stack_times_flat is not None  # guaranteed by the guard above
-            mua_times = _get_mua_condition_times(subject, probe, condition)
-            offs["time_ixs"] = offs["time_ixs"].map(
-                lambda ix: np.searchsorted(stack_times_flat, mua_times[ix])
-            )
-        return offs
-
-    # off_source == "full48h" (validated above).
     fm = source_config.files_module
     offs = pd.read_parquet(fm.get_full_offs_path(subject, probe, structure))
     offs = off_tables.filter_offs(offs, filter_name)
@@ -255,14 +193,12 @@ def compare_structure(
     manual_labels: np.ndarray,
     da_full: xr.DataArray,
     stack_times_flat: np.ndarray | None = None,
-    off_source: str = "full48h",
 ) -> pd.DataFrame:
     """Run a full comparison for one (subject, probe, structure, filter).
 
     Accepts pre-loaded ``manual_labels`` and ``da_full`` to avoid redundant I/O
-    when multiple structures share a probe. ``off_source`` selects which morphological
-    OFFs to score: ``"full48h"`` (default, whole-recording) or ``"per_condition"``,
-    both using true per-pixel masks. Returns two rows (scope = ``"detection"`` and
+    when multiple structures share a probe. Scores the whole-recording morphological
+    OFFs using true per-pixel masks. Returns two rows (scope = ``"detection"`` and
     ``"structure"``).
     """
     # Load structure and detection DataArrays (always from tom traces, since the
@@ -288,7 +224,7 @@ def compare_structure(
         da_full, da_struct, da_det, n_label_rows
     )
 
-    # Load the OFFs (per-condition or full-48h) with true per-pixel masks, already
+    # Load the full-48h OFFs with true per-pixel masks, already
     # translated into stack-grid sample indices. The translation needs the stack's
     # flattened timestamps for the morphological variant.
     if source_config.variant == "morphological" and stack_times_flat is None:
@@ -299,7 +235,6 @@ def compare_structure(
         structure,
         condition,
         filter_name,
-        off_source=off_source,
         source_config=source_config,
         stack_times_flat=stack_times_flat,
     )
@@ -337,7 +272,7 @@ def compare_structure(
                 "structure": structure,
                 "filter_name": filter_name,
                 "variant": source_config.variant,
-                "off_source": off_source,
+                "off_source": "full48h",
                 "scope": scope_name,
                 **px,
                 **ev,
@@ -351,15 +286,12 @@ def compare_all(
     source_config: MorphologicalSourceConfig,
     filter_names: list[str] | None = None,
     condition: str = "Early.REC.NREM",
-    *,
-    off_source: str = "full48h",
 ) -> pd.DataFrame:
     """Run the comparison for all cortical tuples with manual labels.
 
     Iterates over (subject, probe) pairs that have manual label files, loads
     shared data once per probe, then iterates over cortical structures and filter
-    names. ``off_source`` selects the morphological OFF source (``"full48h"`` default or
-    ``"per_condition"``); both use true masks.
+    names.
     """
     if filter_names is None:
         filter_names = ["llas", "clas", "blas"]
@@ -421,15 +353,11 @@ def compare_all(
             continue
 
         # Pre-load the MUA timebase (warming the per-probe cache) and stack
-        # timestamps once per probe (only needed for the morphological variant). The
-        # relevant timebase depends on off_source: full-recording vs condition-masked.
+        # timestamps once per probe (only needed for the morphological variant).
         stack_times_flat = None
         if source_config.variant == "morphological":
             try:
-                if off_source == "full48h":
-                    _get_mua_full_times(subject, probe)
-                else:
-                    _get_mua_condition_times(subject, probe, condition)
+                _get_mua_full_times(subject, probe)
                 stack_times_flat = grid.load_stack_times_flat(
                     subject, probe, condition
                 )
@@ -455,7 +383,6 @@ def compare_all(
                         manual_labels=manual_labels,
                         da_full=da_full,
                         stack_times_flat=stack_times_flat,
-                        off_source=off_source,
                     )
                     all_results.append(df)
                 except Exception as exc:

@@ -5,10 +5,8 @@ structures within a single multi-structure subject. Investigates local vs
 global sleep, pairwise overlaps, event-locked OFF onset probability, OFF
 property correlates of overlap, and jitter-based null distributions.
 
-OFF-source-agnostic: every entry point accepts an ``off_source`` selecting one
-of :data:`OFF_SOURCES`. ``"morphological"`` reads the per-condition
-aggregated parquets produced by ``aggregate_experiment_offs.do_experiment()``;
-``"morphological-full48h"`` (default) derives event-level OFFs in memory from the
+Every entry point accepts an ``off_source`` naming one of :data:`OFF_SOURCES`;
+``"morphological-full48h"`` derives event-level OFFs in memory from the
 whole-recording detection, subset to the six statistical conditions.
 """
 
@@ -25,15 +23,16 @@ from cnpix_local_sleep.morphological.pipeline import utils
 
 # -------------------- OFF source selection --------------------
 
-OFF_SOURCES = ("morphological-full48h", "morphological")
+OFF_SOURCES = ("morphological-full48h",)
 DEFAULT_OFF_SOURCE = "morphological-full48h"
 
 _LAS_MERGE_KEYS = ["subject", "probe", "structure", "start_time", "end_time"]
 
 
 def _source_leaf(off_source: str) -> str:
-    """Output-path leaf distinguishing whole-recording (48h) from per-condition."""
-    return "full48h" if off_source == "morphological-full48h" else "per_condition"
+    """Output-path leaf naming the OFF source."""
+    _check_off_source(off_source)
+    return "full48h"
 
 
 def _check_off_source(off_source: str) -> None:
@@ -77,10 +76,8 @@ def get_multi_cortical_subjects(off_source: str = DEFAULT_OFF_SOURCE) -> list[st
 def _get_output_dir(subject: str, off_source: str = DEFAULT_OFF_SOURCE) -> pathlib.Path:
     """Return the output directory for cross-structure analysis results.
 
-    The detection is encoded by the ``method=`` segment of the chosen
-    files module; ``off_source=<full48h|per_condition>`` distinguishes the
-    whole-recording detection from the per-condition detection so the three
-    sources never collide.
+    The detection is encoded by the ``method=`` segment of the files module
+    and the ``off_source=full48h`` leaf.
     """
     _check_off_source(off_source)
     return mua_files.get_path(
@@ -317,8 +314,7 @@ def _assign_las_category(
 
     ``clas`` and ``blas`` are the (nested) subsets of ``llas`` produced by the
     tighter filters, so membership is tested on the shared merge keys
-    (:data:`_LAS_MERGE_KEYS`). Valid for both the per-condition aggregates and
-    the full-48h frames, since all three levels derive from the same base rows.
+    (:data:`_LAS_MERGE_KEYS`); all three levels derive from the same base rows.
     """
     clas_keys = set(map(tuple, clas[_LAS_MERGE_KEYS].values))
     blas_keys = set(map(tuple, blas[_LAS_MERGE_KEYS].values))
@@ -342,33 +338,20 @@ def load_cross_structure_offs(
 
     Returns one row per OFF (all cortical structures, optionally restricted to a
     single ``subject``), tagged with its statistical ``condition`` and an ordered
-    ``category`` column (BLAS>CLAS>LLAS). Works for every key in
-    :data:`OFF_SOURCES`:
-
-    - ``"morphological-full48h"`` (default): in-memory full-48h OFFs subset to the
-      six conditions via ``aggregate_experiment_offs.load_subset_of_48h_offs``.
-    - ``"morphological"``: the per-condition aggregated
-      ``{llas,clas,blas}_offs.parquet`` read through the variant files module.
+    ``category`` column (BLAS>CLAS>LLAS). In-memory full-48h OFFs subset to the
+    six conditions via ``aggregate_experiment_offs.load_subset_of_48h_offs``.
     """
     _check_off_source(off_source)
     if conditions is None:
         conditions = list(const.CORE_CONDITIONS)
 
-    if off_source == "morphological-full48h":
-        from cnpix_local_sleep.morphological.pipeline import aggregate_experiment_offs as agg
+    from cnpix_local_sleep.morphological.pipeline import aggregate_experiment_offs as agg
 
-        llas = agg.load_subset_of_48h_offs("llas").copy()
-        clas = agg.load_subset_of_48h_offs("clas")
-        blas = agg.load_subset_of_48h_offs("blas")
-        llas["category"] = _assign_las_category(llas, clas, blas)
-        offs = llas  # full-48h frames have no ``threshold_group`` to filter.
-    else:
-        fm = mua_files
-        llas = pd.read_parquet(fm.get_path("llas_offs.parquet")).copy()
-        clas = pd.read_parquet(fm.get_path("clas_offs.parquet"))
-        blas = pd.read_parquet(fm.get_path("blas_offs.parquet"))
-        llas["category"] = _assign_las_category(llas, clas, blas)
-        offs = llas[llas["threshold_group"] == "None"]
+    llas = agg.load_subset_of_48h_offs("llas").copy()
+    clas = agg.load_subset_of_48h_offs("clas")
+    blas = agg.load_subset_of_48h_offs("blas")
+    llas["category"] = _assign_las_category(llas, clas, blas)
+    offs = llas
 
     if subject is not None:
         offs = offs[offs["subject"] == subject]
@@ -387,8 +370,7 @@ def load_whole_recording_offs(
     Unlike :func:`load_cross_structure_offs`, OFFs are kept regardless of which
     statistical-condition window covers them. The result carries a single
     pseudo-condition (``pseudo_condition``) in its ``condition`` column and the
-    same ordered ``category`` column. Only defined for the full-48h source,
-    since per-condition detection has no whole-recording counterpart.
+    same ordered ``category`` column.
     """
     if off_source != "morphological-full48h":
         raise ValueError(

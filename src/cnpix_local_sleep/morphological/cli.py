@@ -35,67 +35,6 @@ def main(ctx, no_log: bool, log_dir: str):
     )
 
 
-# -------------------- Preprocessing --------------------
-
-
-# -------------------- Detection --------------------
-
-
-@main.command("detect-offs")
-@click.argument("subject")
-@click.argument("probe")
-@click.argument("structure", required=False)
-@click.option(
-    "--options-path",
-    type=click.Path(exists=True),
-    required=True,
-    help="YAML config file (required).",
-)
-@click.option(
-    "--overwrite", is_flag=True, help="Overwrite existing outputs."
-)
-@click.option(
-    "--descendants-of",
-    multiple=True,
-    default=["Cx"],
-    help="Ancestor structures to include when structure is omitted.",
-)
-def detect_offs(
-    subject: str,
-    probe: str,
-    structure: str | None,
-    options_path: str,
-    overwrite: bool,
-    descendants_of: tuple[str, ...],
-):
-    """Detect morphological OFF periods and write results to disk.
-
-    This command performs threshold computation and OFF detection in a
-    single step, loading data once and performing both operations before
-    writing results. Results are written under ``method=morphological``.
-    """
-    from cnpix_local_sleep.morphological import detect as detect_module
-    from cnpix_local_sleep.morphological.mua import SOURCE_CONFIG
-    from cnpix_local_sleep.morphological.types import validate_detection_opts
-
-    opts = load_opts(options_path)
-    validate_detection_opts(opts)
-
-    structures = resolve_structures(
-        subject, probe, structure, descendants_of
-    )
-    click.echo("Detecting OFF events (variant=morphological)")
-    run_on_structures(
-        subject,
-        probe,
-        structures,
-        detect_module.do_structure,
-        opts=opts,
-        overwrite=overwrite,
-        source_config=SOURCE_CONFIG,
-    )
-
-
 @main.command("detect-offs-full")
 @click.argument("subject")
 @click.argument("probe")

@@ -6,8 +6,7 @@ condition-agnostic ``offs.parquet`` per (subject, probe, structure), with a
 per-OFF ``state`` column. This module consumes those files to:
 
 - verify extraction coverage (:func:`verify_extraction`);
-- re-derive condition-based summaries by subsetting the 48h OFFs and compare
-  them to the canonical per-condition aggregation (see
+- re-derive condition-based summaries by subsetting the 48h OFFs (see
   :mod:`cnpix_local_sleep.morphological.pipeline.aggregate_experiment_offs`);
 - sweep "intrusion" bouts (non-Wake bouts during the NOD deprivation window)
   to quantify how counting their OFFs changes the NOD incline. The swept
@@ -138,7 +137,7 @@ def _normalized_off_area_trace(
 
     Matches the normalization convention of
     :func:`cnpix_local_sleep.morphological.pipeline.plot_offs_vs_time._prepare_data` so this
-    continuous view is comparable to the existing per-condition figures.
+    continuous view is comparable to the condition-grid figures.
     """
     trace = plots.get_smoothed_trace(
         offs,
