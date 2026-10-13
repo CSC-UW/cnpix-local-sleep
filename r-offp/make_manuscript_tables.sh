@@ -16,6 +16,13 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# library(offp) reads the INSTALLED copy of inst/extdata; refuse to fit against a stale one.
+INSTALLED_EXTDATA="$(Rscript -e 'suppressMessages(source("renv/activate.R")); cat(system.file("extdata", package = "offp"))' 2>/dev/null | tail -n 1)"
+if [[ -z "$INSTALLED_EXTDATA" ]] || ! diff -rq inst/extdata "$INSTALLED_EXTDATA" >/dev/null; then
+  echo "installed offp extdata ($INSTALLED_EXTDATA) differs from inst/extdata; reinstall offp first (see AGENTS.md Known Issues)" >&2
+  exit 3
+fi
+
 DO_EXPORTS=0; DO_R=0; DO_NFS=0; DO_DIAG=0
 for a in "$@"; do
   case "$a" in

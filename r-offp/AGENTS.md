@@ -313,3 +313,11 @@ variable in YAML), then full vs null compared by likelihood ratio test.
 - `renv` symlinks library packages to a shared cache. Tools like `pak` and
   `devtools::install()` may fail trying to overwrite these symlinks. Use
   `renv::install(".")` to install the local package.
+- `renv::install(".")` resolves the package's dependencies first, so when the
+  project is out of sync with `renv.lock` (`renv::status()`) it may try to
+  rebuild unrelated packages from source and abort before `offp` is installed
+  (2026-10-12: `arrow` 25.0.1 needs a C++20 compiler the host lacks). The
+  scripts keep running against the previously installed copy, whose bundled
+  `inst/extdata` is then stale. Fallback that touches only `offp`:
+  `R CMD INSTALL --no-multiarch --no-docs --library="$(Rscript -e 'source("renv/activate.R"); cat(.libPaths()[1])')" .`
+  and confirm with `diff -rq inst/extdata "$(Rscript -e 'source("renv/activate.R"); cat(system.file("extdata", package="offp"))')"`.
