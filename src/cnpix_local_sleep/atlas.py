@@ -12,12 +12,17 @@ from brainglobe_atlasapi import BrainGlobeAtlas
 
 
 def get_atlas() -> BrainGlobeAtlas:
-    """Atlas version 1.2"""
-    return BrainGlobeAtlas("whs_sd_rat_39um", check_latest=False)
+    """Waxholm Space SD rat atlas, brainglobe package version 3.0.
+
+    Identical content to the pre-brainglobe-atlasapi-3 package version 1.2:
+    same structures, ids, names, hierarchy, colours, annotation, hemisphere and
+    template volumes; meshes differ only by Draco quantization (< 0.1 um).
+    """
+    return BrainGlobeAtlas("whs_sd_rat_39um", version="3.0", check_latest=False)
 
 
 # Bin edges for anterior-posterior axis grouping.
-# Specific to the whs_sd_rat_39um atlas (version 1.2).
+# Specific to the whs_sd_rat_39um atlas (package version 3.0, content == 1.2).
 AP_COORD_BINS = [0, 12900, 18370, 20100, float("inf")]
 AP_COORD_BIN_LABELS = ["ant", "cent-ant", "cent-post", "post"]
 
@@ -40,10 +45,10 @@ def get_anterior_posterior_axis_profile(structure: str) -> np.ndarray:
     each A/P slice. This is the structure's mass distribution along A/P, and
     backs :func:`get_anterior_posterior_axis_coord` (``method="volume"``).
 
-    ``BrainGlobeAtlas.get_structure_mask`` returns a mask whose non-zero entries
-    carry the *structure id*, not ``1``; it must be binarized before counting,
-    or structures with descendants (e.g. ``V2`` -> ``V2M``/``V2L``) would be
-    weighted by their childrens' ids.
+    The mask is binarized before counting. brainglobe-atlasapi >= 3 already
+    returns 0/1, but < 3 returned the structure id at every voxel, which would
+    weight structures with descendants (e.g. ``V2`` -> ``V2M``/``V2L``) by their
+    childrens' ids.
     """
     if structure in _AP_PROFILE_CACHE:
         return _AP_PROFILE_CACHE[structure]

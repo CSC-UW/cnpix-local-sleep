@@ -17,6 +17,7 @@ import ecephys.xrsig.core as xrc
 import ecephys.xrsig.plt as xrp
 import matplotlib.pyplot as plt
 import numba
+import numcodecs
 import numpy as np
 import numpy.typing as npt
 import wisc_ecephys_tools as wet
@@ -28,7 +29,7 @@ from ecephys import units
 from numba.typed import Dict as NumbaDict
 from ome_zarr.format import FormatV04
 from ome_zarr.io import parse_url
-from ome_zarr.writer import write_image
+from ome_zarr.writer import write_multiscales_metadata
 from PIL import Image
 
 import cnpix_local_sleep as op
@@ -599,6 +600,38 @@ def _write_timestamps(
     return timestamps_path
 
 
+def _write_single_scale(
+    group: zarr.Group, image: np.ndarray, axes: list[str], chunks: tuple[int, ...]
+) -> None:
+    """Write *image* as the sole, full-resolution dataset ``0`` of an OME-Zarr 0.4 group.
+
+    Same layout ``ome_zarr.writer.write_image(scaler=None)`` produced under
+    ome-zarr < 0.12 (zarr v2 array at ``<group>/0``, blosc lz4); ome-zarr >= 0.12
+    names datasets ``s0`` and builds a pyramid unless told otherwise, which
+    every stack reader (``cnpix.stacks``) would not find.
+    """
+    group.create_array(
+        "0",
+        data=image,
+        chunks=chunks,
+        compressors=numcodecs.Blosc(cname="lz4", clevel=5, shuffle=1),
+        chunk_key_encoding={"name": "v2", "separator": "/"},
+    )
+    write_multiscales_metadata(
+        group,
+        datasets=[
+            {
+                "path": "0",
+                "coordinateTransformations": [
+                    {"type": "scale", "scale": [1.0] * image.ndim}
+                ],
+            }
+        ],
+        fmt=FormatV04(),
+        axes=axes,
+    )
+
+
 def write_ome_zarr_stacks(
     ap: xr.DataArray,
     lf: xr.DataArray,
@@ -713,39 +746,21 @@ def write_ome_zarr_stacks(
     # Write AP data (Group 0) - grayscale uint8
     print("  Writing AP to OME-Zarr...")
     ap_group = root.create_group("0")
-    write_image(
-        image=ap_stack,
-        group=ap_group,
-        axes=["t", "y", "x"],
-        storage_options=dict(chunks=(1, ap_stack.shape[1], ap_stack.shape[2])),
-        scaler=None,  # No multiscale pyramid
-    )
+    _write_single_scale(ap_group, ap_stack, ["t", "y", "x"], (1, ap_stack.shape[1], ap_stack.shape[2]))
     ap_group.attrs["name"] = "ap"
     ap_group.attrs["description"] = "AP-band data (uint8, per-chunk min-max normalized)"
 
     # Write spike data (Group 1) - binary uint8 (0 or 255)
     print("  Writing spikes to OME-Zarr...")
     spike_group = root.create_group("1")
-    write_image(
-        image=spike_stack,
-        group=spike_group,
-        axes=["t", "y", "x"],
-        storage_options=dict(chunks=(1, spike_stack.shape[1], spike_stack.shape[2])),
-        scaler=None,  # No multiscale pyramid
-    )
+    _write_single_scale(spike_group, spike_stack, ["t", "y", "x"], (1, spike_stack.shape[1], spike_stack.shape[2]))
     spike_group.attrs["name"] = "spikes"
     spike_group.attrs["description"] = "Binary spike presence (uint8, 0/255)"
 
     # Write LFP data (Group 2) - binary uint8 (0 or 255)
     print("  Writing LFP to OME-Zarr...")
     lf_group = root.create_group("2")
-    write_image(
-        image=lf_stack,
-        group=lf_group,
-        axes=["t", "y", "x"],
-        storage_options=dict(chunks=(1, lf_stack.shape[1], lf_stack.shape[2])),
-        scaler=None,  # No multiscale pyramid
-    )
+    _write_single_scale(lf_group, lf_stack, ["t", "y", "x"], (1, lf_stack.shape[1], lf_stack.shape[2]))
     lf_group.attrs["name"] = "lf"
     lf_group.attrs["description"] = "LFP traces (binary uint8, 0/255)"
 
@@ -754,13 +769,7 @@ def write_ome_zarr_stacks(
     if borders is not None:
         print("  Writing structure borders to OME-Zarr...")
         borders_group = root.create_group("3")
-        write_image(
-            image=borders,
-            group=borders_group,
-            axes=["y", "x"],
-            storage_options=dict(chunks=(borders.shape[0], borders.shape[1])),
-            scaler=None,  # No multiscale pyramid
-        )
+        _write_single_scale(borders_group, borders, ["y", "x"], (borders.shape[0], borders.shape[1]))
         borders_group.attrs["name"] = "structure_borders"
         borders_group.attrs["description"] = (
             "Structure boundary lines (binary uint8, 0/255)"

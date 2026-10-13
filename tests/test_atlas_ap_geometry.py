@@ -102,9 +102,10 @@ def test_mesh_and_volume_centroids_agree_on_cortical_structures():
 def test_descendant_bearing_structure_is_binarized():
     """V2's annotation is labelled V2M/V2L, not V2.
 
-    ``get_structure_mask`` returns an *id-valued* mask, so failing to binarize
-    would weight each voxel by its structure id and put V2's centroid nowhere
-    near the structure.
+    brainglobe-atlasapi < 3 returned an *id-valued* mask from ``get_structure_mask``;
+    failing to binarize would weight each voxel by its structure id and put V2's
+    centroid nowhere near the structure. >= 3 returns 0/1, so this now guards the
+    binarization against regressing to id weighting.
     """
     profile = atlas.get_anterior_posterior_axis_profile("V2")
     assert profile.sum() < atlas.get_atlas().annotation.size

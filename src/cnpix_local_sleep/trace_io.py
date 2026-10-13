@@ -109,7 +109,7 @@ def open_si_zarr_recording_as_xarray(fpath, hotfix_times: bool = True) -> xr.Dat
 
     # Trace data via dask for lazy loading.
     zg = zarr.open(fpath)
-    traces = dask.array.from_zarr(zg.traces_seg0).rechunk()
+    traces = dask.array.from_zarr(zg["traces_seg0"]).rechunk()
 
     coords: dict = {
         "time": times,
