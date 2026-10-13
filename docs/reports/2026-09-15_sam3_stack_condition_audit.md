@@ -1,6 +1,6 @@
 ---
 title: SAM3 annotation stacks — what each condition directory actually contains
-updated: 2026-09-15
+updated: 2026-09-18
 ---
 
 # SAM3 annotation stacks: condition-directory audit
@@ -149,6 +149,29 @@ label arrays scale the same way and are the larger cost if saved uncompressed:
 the Otto `Late.NOD.Wake` manual NPZ is 1.64 GB for 900 chunks (`np.savez`),
 which would be ≈ 9 GB for a whole SD; `np.savez_compressed` brings that to a
 few MB (the model NPZs are 1.6–2.4 MB).
+
+## Whole-SD `NOD` stacks written (2026-09-18)
+
+Following the sizing above, `condition=NOD` stacks were written for all 26
+pairs (`write_sam3_stacks.py --conditions NOD`; 1502 min, 0 failures, ~1 h per
+pair). The key was chosen after checking the hypnogram definitions in
+`wisc_ecephys_tools.rats.cnd_hgs`:
+
+- `NOD` = the consensus hypnogram trimmed to the novel-objects period and
+  filtered to Wake and NREM bouts. For this experiment `SD` is built identically
+  and is equal to `NOD` in every pair. REM, Artifact, NoData and Other bouts are
+  excluded, so the stacks cover 3.8–5.9 h of a 4.4–6.0 h span; the user chose
+  this Wake+NREM subset over a literal full-period trim.
+- `EXT` is a consolidated-wake window found independently of the novel-objects
+  bounds and is not a superset of `NOD`: it ends before `NOD` in Segundo, Allan,
+  Charles, Adrian, Walter and Ernst (2–36 min), starts after it in Valentino,
+  Doppio and Walter (3–24 min), and is absent for Giuseppe.
+
+Two-sided check of every stack against its current `NOD` hypnogram: fraction of
+stack samples inside the window = 1.0000 for all 26; fraction of window 1 s bins
+touched ≥ 0.9998 for all 26 (the last partial chunk is dropped). Sizes 1.6 GB
+(Giuseppe imec1) to 2.7 GB (Francis imec1), median 2.3 GB, 59 GB total. `NOD` was
+added to the script's `DEFAULT_CONDITIONS`.
 
 ## Related housekeeping done the same day
 
