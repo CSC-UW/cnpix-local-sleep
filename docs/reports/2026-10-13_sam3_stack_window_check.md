@@ -204,15 +204,57 @@ timebase. The imec0 arrays never changed. The 2026-10-07 patch changed the
 time attached to each rendered imec1 sample, not which sample an image shows.
 The detector-vs-manual scorers map detections onto the label grid through
 these arrays (`cnpix_local_sleep.evaluation.grid.load_stack_times_flat`).
+`grid.label_events` turns a manual or model label array into one row per
+instance with start and end times and a depth range.
 
-The morphological scorer (`morphological/full48h_eval.py`) keeps only OFFs
-whose `start_time` lies in the current condition window
-(`aggregate_experiment_offs.load_subset_of_48h_offs`). A manual label on a
-stack sample now outside the window can therefore lack a detection to match.
-At most the 13 labelled instances in the table above are concerned. The
-unit-based scorer detects over spans built from the stack's own chunk times
-(`unit_based/banded_eval.py::labeled_chunk_bouts`) and has no such
-restriction.
+## Scoring domain of the morphological scorers
+
+Until this change the two morphological scorers kept only OFFs whose
+`start_time` lay in the current condition window, while the banded scorer
+detected over spans built from the stack's own chunk times
+(`unit_based/banded_eval.py::labeled_chunk_bouts`). A manual label on a stack
+sample now outside the window could therefore lack a morphological detection to
+match; at most the 13 labelled instances in the label table above were
+concerned. The window test dropped OFFs that overlap the scored images but
+start outside the window
+(`inplace/scripts/audit_morph_edge_drop.py`, `chronic/audit_morph_edge_drop.tsv`):
+
+| eval | filter | OFFs overlapping scored chunks | dropped by the window test |
+| --- | --- | --- | --- |
+| NREM | BLAS | 3541 | 5 |
+| NREM | CLAS | 5219 | 7 |
+| NREM | LLAS | 11500 | 13 |
+| Wake | LLAS | 7438 | 56 |
+
+Some of these are on stacks the timebase fix left identical (CNPIX2-Segundo
+imec0, CNPIX12-Santiago imec1), so the test predates the fix. The test also
+guarded the per-pixel path, which placed each MUA pixel on the next grid sample
+with a bare `np.searchsorted`: a pixel in a gap between bouts landed on the
+first sample after the gap.
+
+Both scorers now keep the OFFs that overlap the stack grid
+(`evaluation.grid.overlaps_grid`), and the per-pixel path maps pixel times with
+`evaluation.grid.times_to_grid_index`, which drops pixels more than 1.5 sample
+periods before the next grid sample. `full48h_eval` reads the whole-recording
+OFFs (`aggregate_experiment_offs.load_whole_48h_offs`).
+
+Effect, from reruns of the new code to
+`/Volumes/scratch/neuropixels/ecephys/prb_sync_timebase/inplace/chronic/eval_grid_domain/`
+compared with the 2026-10-12 tables (`eval_grid_domain_compare.py`, output in
+`compare.txt`):
+
+- Table 1 (`head_to_head`, NREM, detection scope): per-label mean F1
+  unchanged to four decimals (LLAS 0.6242, CLAS 0.5803, BLAS 0.5479,
+  fixed_tiled 0.4491, greedy_fr 0.6294). Morphological mean precision moves
+  by -0.0002 and mean sensitivity by at most +0.0001; 8 BLAS, 12 CLAS and
+  17 LLAS rows of 29 change, the largest by 0.0014 F1. Banded rows are
+  identical.
+- `compare_all` (`manual_vs_morphological_full48h`): 80 of 174 rows change,
+  the largest by 0.0014 F1; per scope and filter mean F1 moves by at most
+  0.00003.
+- `full48h_eval` NREM: 13 of 75 rows change, the largest by 0.0013 F1. Wake
+  (LLAS): 7 of 17 pairs change; mean F1 0.2378 to 0.2401, the largest change
+  +0.0213 (CNPIX15-Claude imec0).
 
 ## CNPIX7-Giuseppe stale directories
 
