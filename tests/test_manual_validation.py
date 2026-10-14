@@ -108,3 +108,55 @@ def test_get_mua_full_times_is_unmasked(monkeypatch):
     np.testing.assert_array_equal(out, times)  # no condition mask applied
     mv._get_mua_full_times.cache_clear()
 
+
+
+# manual_validation._load_translated_mua_offs (grid overlap + gap-aware pixel mapping)
+def test_load_translated_mua_offs_keeps_grid_overlap_and_drops_gap_pixels(
+    tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+
+    # Stack grid: two bouts, 0-4 s and 10-14 s, 1 s apart; MUA every 0.5 s.
+    ts_flat = np.array([0.0, 1.0, 2.0, 3.0, 4.0, 10.0, 11.0, 12.0, 13.0, 14.0])
+    mua_times = np.arange(0.0, 30.0, 0.5)
+    ix = lambda *t: (np.asarray(t) / 0.5).astype(int)
+    offs = pd.DataFrame(
+        {
+            "label": [1, 2, 3, 4, 5],
+            # 1 inside; 2 starts in the gap; 3 wholly in the gap; 4 runs past the
+            # bout end; 5 after the grid
+            "start_time": [1.0, 7.0, 5.0, 4.0, 20.0],
+            "end_time": [3.0, 11.0, 8.0, 6.0, 25.0],
+            "span": [300.0] * 5,
+            "duration": [0.1] * 5,
+            "median_duration": [0.1] * 5,
+            "max_span": [400.0] * 5,
+        }
+    )
+    lbls = pd.DataFrame(
+        {
+            "label": [1, 2, 3, 4, 5],
+            "time_ixs": [ix(1, 2, 3), ix(7, 10, 11), ix(5, 8), ix(4, 5, 6), ix(20, 25)],
+            "chan_ixs": [[0, 1, 2], [7, 8, 9], [0, 0], [3, 4, 5], [0, 0]],
+        }
+    )
+    offs.to_parquet(tmp_path / "offs.parquet")
+    lbls.to_parquet(tmp_path / "lbls.parquet")
+    fm = SimpleNamespace(
+        get_full_offs_path=lambda s, p, st: tmp_path / "offs.parquet",
+        get_full_off_label_indices_path=lambda s, p, st: tmp_path / "lbls.parquet",
+    )
+    monkeypatch.setattr(mv, "_get_mua_full_times", lambda s, p: mua_times)
+
+    out = mv._load_translated_mua_offs(
+        "SUBJ", "imec0", "M2", "llas",
+        source_config=SimpleNamespace(files_module=fm),
+        stack_times_flat=ts_flat,
+    ).set_index("label")
+
+    assert list(out.index) == [1, 2, 4]
+    np.testing.assert_array_equal(out.loc[1, "time_ixs"], [1, 2, 3])
+    np.testing.assert_array_equal(out.loc[2, "time_ixs"], [5, 6])  # 7 s pixel dropped
+    np.testing.assert_array_equal(out.loc[2, "chan_ixs"], [8, 9])
+    np.testing.assert_array_equal(out.loc[4, "time_ixs"], [4])  # tail not moved to 10 s
+    np.testing.assert_array_equal(out.loc[4, "chan_ixs"], [3])

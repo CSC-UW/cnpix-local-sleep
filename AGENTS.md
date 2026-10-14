@@ -89,7 +89,7 @@ Notebooks are committed without outputs.
 | `morphological/` | The morphological method: `common.py` (`MorphologicalSourceConfig`), `morphology.py` (the detection kernel), `detect.py`, `detect_full.py`, `manual_validation.py`, `full48h_eval.py`, shared CLI/types, `mua/` subpackage |
 | `morphological/pipeline/` | Postprocessing kernels, full-48h aggregation, and the `export-*` implementations |
 | `unit_based/` | The spatially tiled unit-based method: `banded.py`, `banded_eval.py`, `banded_plots.py` |
-| `evaluation/` | Manual OFF labels, grid geometry, rasterizer and metric kernels, plus the cross-method drivers behind Table 1: `head_to_head.py`, `banded_vs_morphological.py` |
+| `evaluation/` | Manual OFF labels, grid geometry (stack times and depths, labels read back as time/depth events with `grid.label_events`), rasterizer and metric kernels, plus the cross-method drivers behind Table 1: `head_to_head.py`, `banded_vs_morphological.py` |
 | `stacks/` | OFF period stacking and the napari annotation grid |
 
 ## Detection Methods

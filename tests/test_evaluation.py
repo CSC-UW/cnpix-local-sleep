@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import scipy.ndimage
 
-from cnpix_local_sleep.evaluation import labels, metrics, rasterize
+from cnpix_local_sleep.evaluation import grid, labels, metrics, rasterize
 
 
 def _qc_reference(arr, *, min_component_size=50):
@@ -222,3 +222,52 @@ class TestRasterizer:
         except ValueError:
             return
         raise AssertionError("expected ValueError for row/depth mismatch")
+
+
+class TestGrid:
+    # spc=5, 2 chunks, 1 s spacing, gaps 2->10 (inside chunk 0) and none at the chunk edge.
+    TS = np.array([0.0, 1.0, 2.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0])
+    Y = np.array([0.0, 100.0, 200.0])
+
+    def test_overlaps_grid(self):
+        starts = np.array([0.5, 3.0, 5.0, 20.0, -5.0])
+        ends = np.array([1.5, 9.0, 10.0, 30.0, -1.0])
+        np.testing.assert_array_equal(
+            grid.overlaps_grid(starts, ends, self.TS), [True, False, True, False, False]
+        )
+
+    def test_times_to_grid_index_drops_gap_times(self):
+        times = np.array([0.0, 0.5, 2.0, 2.5, 9.5, 10.0, 16.0, 16.5, -3.0])
+        np.testing.assert_array_equal(
+            grid.times_to_grid_index(times, self.TS), [0, 1, 2, -1, 3, 3, 9, -1, -1]
+        )
+
+    def test_label_events_extents_and_gap_flag(self):
+        lab = np.zeros((2, 3, 5), dtype=np.int32)
+        lab[0, 0:2, 0:2] = 1  # rows 0-1 -> y 200, 100
+        lab[0, 2, 2:4] = 2  # samples at t=2 and t=10: straddles the gap
+        lab[1, 1:3, 1:4] = 3
+        ev = grid.label_events(lab, self.TS, self.Y).set_index("label")
+        assert list(ev.index) == [1, 2, 3]
+        assert ev.loc[1, ["start_time", "end_time", "lo", "hi"]].tolist() == [0.0, 1.0, 100.0, 200.0]
+        assert ev.loc[2, ["start_time", "end_time", "duration"]].tolist() == [2.0, 10.0, 8.0]
+        assert ev.loc[3, ["chunk", "start_time", "end_time", "lo", "hi"]].tolist() == [1, 13.0, 15.0, 0.0, 100.0]
+        assert ev["crosses_gap"].tolist() == [False, True, False]
+        assert ev["n_pixels"].tolist() == [4, 2, 6]
+
+    def test_label_events_round_trip_through_rasterizer(self):
+        lab = np.zeros((2, 3, 5), dtype=np.int32)
+        lab[0, 0:2, 0:2] = 1
+        lab[0, 2, 2:4] = 2
+        lab[1, 1:3, 1:4] = 3
+        ev = grid.label_events(lab, self.TS, self.Y)
+        r = rasterize.rasterize_offs(ev, self.TS, self.Y, lab.shape)
+        np.testing.assert_array_equal(r > 0, lab > 0)
+
+    def test_label_events_shape_mismatch_raises(self):
+        lab = np.zeros((2, 3, 5), dtype=np.int32)
+        try:
+            grid.label_events(lab, self.TS[:-1], self.Y)
+        except ValueError:
+            return
+        raise AssertionError("expected ValueError for timestamp/grid mismatch")

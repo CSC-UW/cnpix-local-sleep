@@ -7,7 +7,8 @@ This module retains the *morphological-specific* driver that rasterizes label in
 (``time_ixs``/``chan_ixs``) into manual-label space and scores them, using the true
 per-pixel masks (never bounding boxes). OFFs come from the whole-recording
 ``offs.parquet`` + ``off_label_indices.parquet``; ``time_ixs`` are full-recording
-MUA sample indices, restricted to the condition by its hypnogram.
+MUA sample indices, mapped onto the stack grid. OFFs are kept if they overlap the
+grid, and pixels that fall between grid samples (in a gap between bouts) are dropped.
 
 (``cnpix_local_sleep.morphological.full48h_eval`` also reads the full-48h offs but only as
 bounding boxes; use this module when you need true masks.)
@@ -26,7 +27,6 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from cnpix_local_sleep import hyp
 from cnpix_local_sleep.morphological.common import MorphologicalSourceConfig
 from cnpix_local_sleep.evaluation import grid, labels as eval_labels, metrics
 from cnpix_local_sleep import off_tables
@@ -139,31 +139,27 @@ def _load_translated_mua_offs(
     subject: str,
     probe: str,
     structure: str,
-    condition: str,
     filter_name: str,
     *,
     source_config: MorphologicalSourceConfig,
-    stack_times_flat: np.ndarray | None = None,
+    stack_times_flat: np.ndarray,
 ) -> pd.DataFrame:
     """Load morphological OFFs with TRUE per-pixel masks and translate ``time_ixs`` into
     stack-grid flat sample indices (ready for :func:`_build_morphological_label_array`).
 
     Reads the whole-recording ``offs.parquet`` + ``off_label_indices.parquet``
-    (per-structure paths), filtered by LAS (:func:`off_tables.filter_offs`) and
-    restricted to the condition by its hypnogram; for ``morphological`` the ``time_ixs``
-    are full-recording MUA sample indices, translated via :func:`_get_mua_full_times`.
+    (per-structure paths), filtered by LAS (:func:`off_tables.filter_offs`), and keeps
+    the OFFs that overlap the stack grid (:func:`grid.overlaps_grid`). ``time_ixs`` are
+    full-recording MUA sample indices, translated via :func:`_get_mua_full_times` and
+    :func:`grid.times_to_grid_index`; pixels between grid samples are dropped.
     """
-    is_mua = source_config.variant == "morphological"
-    if is_mua and stack_times_flat is None:
-        raise ValueError("stack_times_flat is required for the morphological variant")
-
     fm = source_config.files_module
     offs = pd.read_parquet(fm.get_full_offs_path(subject, probe, structure))
     offs = off_tables.filter_offs(offs, filter_name)
-    # The full-recording offs carry `state` (NREM/Wake), not `condition`; restrict
-    # to this condition's coverage via its hypnogram before translating times.
-    hg = hyp.load_statistical_condition_hypnograms(subject, probe)[condition]
-    offs = offs[hg.covers_time(offs["start_time"].to_numpy())].reset_index(drop=True)
+    on_grid = grid.overlaps_grid(
+        offs["start_time"].to_numpy(), offs["end_time"].to_numpy(), stack_times_flat
+    )
+    offs = offs[on_grid].reset_index(drop=True)
     if not len(offs):
         return offs
     lbls = pd.read_parquet(
@@ -173,13 +169,19 @@ def _load_translated_mua_offs(
     lbls = lbls[lbls["label"].isin(set(offs["label"]))]
     offs = offs.merge(lbls, on="label", how="left")
     offs = _normalize_label_indices(offs)
-    if is_mua and len(offs):
-        assert stack_times_flat is not None  # guaranteed by the guard above
-        full_times = _get_mua_full_times(subject, probe)
-        offs["time_ixs"] = offs["time_ixs"].map(
-            lambda ix: np.searchsorted(stack_times_flat, full_times[ix])
-        )
-    return offs
+    if not len(offs):
+        return offs
+    full_times = _get_mua_full_times(subject, probe)
+    n_px = offs["time_ixs"].map(len).to_numpy()
+    flat = grid.times_to_grid_index(
+        full_times[np.concatenate(offs["time_ixs"].to_list())], stack_times_flat
+    )
+    keep = flat >= 0
+    splits = np.cumsum(n_px)[:-1]
+    chans = np.concatenate(offs["chan_ixs"].to_list())
+    offs["time_ixs"] = [f[k] for f, k in zip(np.split(flat, splits), np.split(keep, splits))]
+    offs["chan_ixs"] = [c[k] for c, k in zip(np.split(chans, splits), np.split(keep, splits))]
+    return offs[offs["time_ixs"].map(len) > 0].reset_index(drop=True)
 
 
 def compare_structure(
@@ -225,15 +227,13 @@ def compare_structure(
     )
 
     # Load the full-48h OFFs with true per-pixel masks, already
-    # translated into stack-grid sample indices. The translation needs the stack's
-    # flattened timestamps for the morphological variant.
-    if source_config.variant == "morphological" and stack_times_flat is None:
+    # translated into stack-grid sample indices.
+    if stack_times_flat is None:
         stack_times_flat = grid.load_stack_times_flat(subject, probe, condition)
     morphological_offs = _load_translated_mua_offs(
         subject,
         probe,
         structure,
-        condition,
         filter_name,
         source_config=source_config,
         stack_times_flat=stack_times_flat,

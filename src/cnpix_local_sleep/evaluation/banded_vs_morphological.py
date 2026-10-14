@@ -30,8 +30,8 @@ def rasterize_morphological_masks(
     Loads the whole-recording OFFs + ``off_label_indices`` (``time_ixs``/``chan_ixs``)
     via the shared loader
     :func:`cnpix_local_sleep.morphological.manual_validation._load_translated_mua_offs` (which applies the
-    LAS ``filter_name``, remaps the MUA detection sample indices to stack-grid samples,
-    and restricts to the condition), then paints each OFF's exact pixels
+    LAS ``filter_name``, keeps the OFFs that overlap the stack grid and remaps their MUA
+    detection sample indices to stack-grid samples), then paints each OFF's exact pixels
     via :func:`cnpix_local_sleep.morphological.manual_validation._build_morphological_label_array`. Returns an
     int32 ``(n_chunks, n_rows, spc)`` array (0 = background).
     """
@@ -41,7 +41,7 @@ def rasterize_morphological_masks(
 
     ts_flat = grid.load_stack_times_flat(subject, probe, condition)
     offs = mv._load_translated_mua_offs(
-        subject, probe, structure, condition, filter_name,
+        subject, probe, structure, filter_name,
         source_config=morphological_mua.SOURCE_CONFIG,
         stack_times_flat=ts_flat,
     )

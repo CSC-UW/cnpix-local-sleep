@@ -776,6 +776,20 @@ def load_subset_of_48h_offs(filter_name: str = "blas") -> pd.DataFrame:
     ).reset_index(drop=True)
 
 
+def load_whole_48h_offs(filter_name: str = "blas") -> pd.DataFrame:
+    """Event-level full-48h OFFs over the whole recording, with no condition tagging.
+
+    The whole-recording counterpart of :func:`load_subset_of_48h_offs`: cortex-only
+    and filtered to the ``filter_name`` LAS category, built on
+    :func:`_collect_cortical_48h_whole`. Memoized via that function; treat the
+    result as read-only.
+    """
+    whole = _collect_cortical_48h_whole()
+    return _apply_filters(
+        whole, off_tables.NAMED_FILTERS[filter_name]
+    ).reset_index(drop=True)
+
+
 def summarize_subset_of_48h_offs(
     filter_name: str = "blas", *, grouped_boxcox: bool = False
 ) -> pd.DataFrame:

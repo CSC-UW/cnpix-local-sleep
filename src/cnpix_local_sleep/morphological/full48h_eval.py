@@ -1,10 +1,9 @@
 """Evaluate full-48h morphological OFF detections against manual ground truth.
 
-Rasterizes the full-recording morphological parquet (``full48h_{filter}_offs.parquet``,
-events as seconds × µm) onto the image-stack grid and scores it against the manual
-labels with the same pixel/event metrics used for the SAM3 model, using the
-per-condition image-selection convention (NREM: labeled chunks only; Wake: all
-chunks).
+Rasterizes the whole-recording morphological OFFs (events as seconds × µm) that
+overlap a stack's grid onto that grid and scores them against the manual labels
+with the same pixel/event metrics used for the SAM3 model, using the per-condition
+image-selection convention (NREM: labeled chunks only; Wake: all chunks).
 """
 
 from __future__ import annotations
@@ -18,15 +17,15 @@ from cnpix_local_sleep.morphological.pipeline import aggregate_experiment_offs
 from cnpix_local_sleep.evaluation import config, grid, labels, metrics, rasterize
 
 
-def _load_full48h(filter_name: str, condition: str) -> pd.DataFrame:
-    """Condition-subset full-48h OFFs for one filter, filtered to one condition.
+def _load_full48h(filter_name: str) -> pd.DataFrame:
+    """Whole-recording cortical full-48h OFFs for one filter.
 
-    Derived in memory (no persisted ``full48h_*`` parquet) via
-    :func:`aggregate_experiment_offs.load_subset_of_48h_offs`, then narrowed to
-    the requested condition.
+    Derived in memory via :func:`aggregate_experiment_offs.load_whole_48h_offs`.
+    No condition window is applied; callers keep the OFFs that overlap their stack
+    grid (:func:`grid.overlaps_grid`), so an OFF visible in a stack image is scored
+    wherever it starts.
     """
-    df = aggregate_experiment_offs.load_subset_of_48h_offs(filter_name)
-    return df[df["condition"] == condition].reset_index(drop=True)
+    return aggregate_experiment_offs.load_whole_48h_offs(filter_name)
 
 
 def evaluate_all_full48h(
@@ -37,14 +36,16 @@ def evaluate_all_full48h(
 ) -> pd.DataFrame:
     """Score morphological full-48h OFFs against manual labels, all pairs and filters.
 
-    Loads each filter's parquet once (condition-filtered) and reuses it across all
-    (subject, probe) pairs. Pairs that fail to load are skipped with a warning.
+    Loads each filter's whole-recording OFFs once and reuses them across all
+    (subject, probe) pairs, keeping per pair the OFFs that overlap its stack grid
+    (``n_off_events`` counts those). Pairs that fail to load are skipped with a
+    warning.
     """
     cfg = config.EVAL_CONFIGS[eval_name]
     condition = cfg["condition"]
     filters = filters or cfg["filters"]
 
-    offs_by_filter = {f: _load_full48h(f, condition) for f in filters}
+    offs_by_filter = {f: _load_full48h(f) for f in filters}
     pairs = labels._get_subject_probe_pairs_with_labels(condition)
 
     rows: list[dict] = []
@@ -75,6 +76,13 @@ def evaluate_all_full48h(
             sp_offs = offs_by_filter[filter_name]
             sp_offs = sp_offs[
                 (sp_offs["subject"] == subject) & (sp_offs["probe"] == probe)
+            ]
+            sp_offs = sp_offs[
+                grid.overlaps_grid(
+                    sp_offs["start_time"].to_numpy(),
+                    sp_offs["end_time"].to_numpy(),
+                    ts_flat,
+                )
             ]
             try:
                 raster = rasterize.rasterize_offs(
