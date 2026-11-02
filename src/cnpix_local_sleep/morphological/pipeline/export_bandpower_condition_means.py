@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Literal
 
 import pandas as pd
+from cnpix.units import regions
 
 from cnpix_local_sleep import atlas, const, sps_conf
 from cnpix_local_sleep.morphological import agg
@@ -57,7 +58,7 @@ def _add_struct_info(means: pd.DataFrame) -> pd.DataFrame:
     structures = means["structure"].unique()
     records = []
     for structure in structures:
-        clade = atlas.get_clade(structure)
+        clade = regions.get_clade(structure)
         ap_coord = atlas.get_anterior_posterior_axis_coord(structure)
         records.append(
             {

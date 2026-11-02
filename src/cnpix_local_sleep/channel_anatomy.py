@@ -1,8 +1,8 @@
 """Probe-channel anatomy: which structure and layer each channel sits in.
 
 Everything here is backed by the recording's own htsv tables (``<probe>.structures.htsv``,
-the detection borders) rather than by an atlas query; :mod:`cnpix_local_sleep.atlas` is the
-BrainGlobe side, deliberately isolated because it is slow to import.
+the detection borders) rather than by an atlas query; :mod:`cnpix.units.regions` is the
+BrainGlobe side.
 """
 
 from __future__ import annotations
@@ -14,8 +14,9 @@ import pandas as pd
 import wisc_ecephys_tools as wet
 import xarray as xr
 from ecephys import wne
+from cnpix.units import regions
 
-from cnpix_local_sleep import atlas, const, files as _op_files
+from cnpix_local_sleep import const, files as _op_files
 
 
 def load_structures(subject: str, probe: str) -> pd.DataFrame:
@@ -137,7 +138,7 @@ def get_layer_borders(
     AssertionError
         If structure is not cortical.
     """
-    assert atlas.get_clade(structure) == "Cx", (
+    assert regions.get_clade(structure) == "Cx", (
         "Cannot compute layer borders for non-cortical structures."
     )
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from cnpix.units import regions
 
 from cnpix_local_sleep import atlas
 
@@ -33,7 +34,7 @@ def _clear_caches():
 
 def _atlas_available() -> bool:
     try:
-        atlas.get_atlas()
+        regions.get_atlas()
     except Exception:
         return False
     return True
@@ -69,7 +70,7 @@ def test_volume_centroid_is_mass_weighted(_clear_caches, monkeypatch):
     class _FakeAtlas:
         resolution = (39.0, 39.0, 39.0)
 
-    monkeypatch.setattr(atlas, "get_atlas", lambda: _FakeAtlas())
+    monkeypatch.setattr(regions, "get_atlas", lambda: _FakeAtlas())
     profile = np.zeros(100)
     profile[10] = 5.0
     atlas._AP_PROFILE_CACHE["FAKE"] = profile
@@ -108,9 +109,9 @@ def test_descendant_bearing_structure_is_binarized():
     binarization against regressing to id weighting.
     """
     profile = atlas.get_anterior_posterior_axis_profile("V2")
-    assert profile.sum() < atlas.get_atlas().annotation.size
+    assert profile.sum() < regions.get_atlas().annotation.size
     occupied = profile.nonzero()[0]
-    resolution = atlas.get_atlas().resolution[0]
+    resolution = regions.get_atlas().resolution[0]
     centroid = atlas.get_anterior_posterior_axis_coord("V2", method="volume")
     assert occupied[0] * resolution <= centroid <= occupied[-1] * resolution
 

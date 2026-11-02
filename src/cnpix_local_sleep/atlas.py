@@ -1,25 +1,15 @@
 """Brain atlas utilities for cnpix_local_sleep.
 
-This module is separated from core.py to isolate the brainglobe_atlasapi import,
-which is slow to load. Import this module only when atlas functionality is needed.
+A/P coordinates and grouping of atlas structures, and the consolidation of
+aliased OFF-analysis structure labels. The atlas itself and the clade labels
+come from :mod:`cnpix.units.regions`.
 """
 
 from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
-from brainglobe_atlasapi import BrainGlobeAtlas
-
-
-def get_atlas() -> BrainGlobeAtlas:
-    """Waxholm Space SD rat atlas, brainglobe package version 3.0.
-
-    Identical content to the pre-brainglobe-atlasapi-3 package version 1.2:
-    same structures, ids, names, hierarchy, colours, annotation, hemisphere and
-    template volumes; meshes differ only by Draco quantization (< 0.1 um).
-    """
-    return BrainGlobeAtlas("whs_sd_rat_39um", version="3.0", check_latest=False)
-
+from cnpix.units import regions
 
 # Bin edges for anterior-posterior axis grouping.
 # Specific to the whs_sd_rat_39um atlas (package version 3.0, content == 1.2).
@@ -52,7 +42,7 @@ def get_anterior_posterior_axis_profile(structure: str) -> np.ndarray:
     """
     if structure in _AP_PROFILE_CACHE:
         return _AP_PROFILE_CACHE[structure]
-    mask = get_atlas().get_structure_mask(structure) > 0
+    mask = regions.get_atlas().get_structure_mask(structure) > 0
     profile = mask.sum(axis=(1, 2)).astype(np.float64)
     _AP_PROFILE_CACHE[structure] = profile
     return profile
@@ -92,11 +82,11 @@ def get_anterior_posterior_axis_coord(
     if key in _AP_COORD_CACHE:
         return _AP_COORD_CACHE[key]
     if method == "mesh":
-        mesh = get_atlas().mesh_from_structure(structure)
+        mesh = regions.get_atlas().mesh_from_structure(structure)
         coord = float(np.mean(mesh.points, axis=0)[0])
     else:
         profile = get_anterior_posterior_axis_profile(structure)
-        resolution = get_atlas().resolution[0]
+        resolution = regions.get_atlas().resolution[0]
         positions = np.arange(len(profile)) * resolution
         coord = float((positions * profile).sum() / profile.sum())
     _AP_COORD_CACHE[key] = coord
@@ -119,32 +109,6 @@ def sort_structures_by_anterior_posterior(
         Structures sorted by A/P coordinate (ascending).
     """
     return sorted(structures, key=get_anterior_posterior_axis_coord)
-
-
-_CLADE_CACHE: dict[str, str] = {}
-
-
-def get_clade(structure: str) -> str:
-    if structure in _CLADE_CACHE:
-        return _CLADE_CACHE[structure]
-
-    ancestors = get_atlas().get_structure_ancestors(structure)
-    if "Thal-D" in ancestors or structure == "Thal-D":
-        clade = "Thal-D"
-    elif "Cx" in ancestors or structure == "Cx":
-        if "HF" in ancestors or structure == "HF":
-            clade = "HF"
-        else:
-            clade = "Cx"
-    elif "Str" in ancestors or structure == "Str":
-        clade = "Str"
-    elif structure == "CLA":
-        clade = "Cx"
-    else:
-        clade = "Other"
-
-    _CLADE_CACHE[structure] = clade
-    return clade
 
 
 def cx_ap_group(ap_coord: float, clade: str) -> str | float:
@@ -212,7 +176,7 @@ def consolidate_off_structure_columns(offs: pd.DataFrame) -> pd.DataFrame:
         rows = offs["structure"] == label
         if not rows.any():
             continue
-        clade = get_clade(label)
+        clade = regions.get_clade(label)
         ap_coord = get_anterior_posterior_axis_coord(label)
         if "clade" in offs.columns:
             offs.loc[rows, "clade"] = clade

@@ -83,7 +83,7 @@ Notebooks are committed without outputs.
 | `hyp.py` | Hypnogram utilities |
 | `plots.py` | Plotting utilities, including the condition and LLAS/CLAS/BLAS palettes |
 | `units.py` | Unit/spike train utilities |
-| `atlas.py` | Brain atlas integration |
+| `atlas.py` | A/P coordinates and grouping of atlas structures; the atlas and `get_clade` are in `cnpix.units.regions` |
 | `sps_conf.py` | Subject-probe-structure config (cross-method; bundled CSV in `data/`) |
 | `release_data.py` | The GitHub Release hosting the event-level OFF tables: fetch, cache, publish |
 | `morphological/` | The morphological method: `common.py` (`MorphologicalSourceConfig`), `morphology.py` (the detection kernel), `detect.py`, `detect_full.py`, `manual_validation.py`, `full48h_eval.py`, shared CLI/types, `mua/` subpackage |

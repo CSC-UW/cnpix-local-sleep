@@ -13,6 +13,7 @@ import os
 import pandas as pd
 import pytest
 
+from cnpix.units import regions
 from cnpix_local_sleep import atlas
 from cnpix_local_sleep.morphological.pipeline import export_bandpower_condition_means as bp
 
@@ -29,7 +30,7 @@ def test_get_cortical_spsl_is_cortical_only():
     spsl = bp.get_cortical_spsl()
     assert len(spsl) > 0
     # Every returned structure must be cortical clade.
-    assert all(atlas.get_clade(structure) == "Cx" for _, _, structure in spsl)
+    assert all(regions.get_clade(structure) == "Cx" for _, _, structure in spsl)
 
 
 # Pure: struct-metadata attachment matches the canonical anatomical labeling
@@ -54,7 +55,7 @@ def test_add_struct_info_attaches_clade_and_ap():
     # Values match the canonical atlas labeling used by the OFF summaries.
     for structure in means["structure"].unique():
         row = out.loc[out["structure"] == structure].iloc[0]
-        assert row["clade"] == atlas.get_clade(structure)
+        assert row["clade"] == regions.get_clade(structure)
         assert row["AP.Coord"] == atlas.get_anterior_posterior_axis_coord(structure)
         assert row["clade"] == "Cx"
         assert isinstance(row["Cx.AP.group"], str)

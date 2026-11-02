@@ -1,7 +1,7 @@
 """Tests for the laminar-dominance mechanical null (:mod:`cnpix_local_sleep.morphological.laminar_null`).
 
 The pure-array tests need no production data: they monkeypatch the two external
-lookups inside :func:`cnpix_local_sleep.morphological.detect.add_laminar_areas` (``atlas.get_clade``
+lookups inside :func:`cnpix_local_sleep.morphological.detect.add_laminar_areas` (``regions.get_clade``
 and ``readers.get_layer_borders``) so the real band-counting code runs against a
 synthetic 20-channel probe. The zero-shift identity test against a real
 ``offs.parquet`` is gated behind ``RUN_NFS_TESTS=1`` like the other production
@@ -15,8 +15,8 @@ import os
 import numpy as np
 import pandas as pd
 import pytest
+from cnpix.units import regions
 
-import cnpix_local_sleep.atlas
 import cnpix_local_sleep.channel_anatomy
 from cnpix_local_sleep.morphological import laminar_null as ln
 
@@ -38,7 +38,7 @@ _BORDERS = pd.DataFrame(
 @pytest.fixture
 def patched_bands(monkeypatch):
     """Make the real band code treat ``STRUCTURE`` as cortical with fixed borders."""
-    monkeypatch.setattr(cnpix_local_sleep.atlas, "get_clade", lambda _s: "Cx")
+    monkeypatch.setattr(regions, "get_clade", lambda _s: "Cx")
     monkeypatch.setattr(
         cnpix_local_sleep.channel_anatomy,
         "get_layer_borders",

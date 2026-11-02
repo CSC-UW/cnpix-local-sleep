@@ -6,6 +6,7 @@ Applied in memory by the full-48h aggregation before filtering.
 from __future__ import annotations
 
 import pandas as pd
+from cnpix.units import regions
 
 from cnpix_local_sleep import atlas
 from cnpix_local_sleep import sps_conf
@@ -45,7 +46,7 @@ def postprocess_offs_frame(
         return offs
 
     # Clade
-    clade = atlas.get_clade(structure)
+    clade = regions.get_clade(structure)
     offs["clade"] = clade
 
     # Anterior-posterior coordinate and group

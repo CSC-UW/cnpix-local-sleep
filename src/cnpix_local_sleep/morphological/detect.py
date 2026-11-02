@@ -9,8 +9,8 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 import xarray as xr
+from cnpix.units import regions
 
-from cnpix_local_sleep import atlas
 from cnpix_local_sleep import channel_anatomy
 
 
@@ -171,7 +171,7 @@ def add_laminar_areas(
         probe: Probe identifier.
         structure: Brain structure name.
     """
-    if atlas.get_clade(structure) != "Cx" or offs.empty:
+    if regions.get_clade(structure) != "Cx" or offs.empty:
         offs["supra_area"] = pd.array(
             [pd.NA] * len(offs), dtype=pd.Int64Dtype()
         )
