@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from cnpix.units import regions
 
 from cnpix_local_sleep import atlas
 
@@ -33,7 +34,7 @@ def _clear_caches():
 
 def _atlas_available() -> bool:
     try:
-        atlas.get_atlas()
+        regions.get_atlas()
     except Exception:
         return False
     return True
@@ -69,7 +70,7 @@ def test_volume_centroid_is_mass_weighted(_clear_caches, monkeypatch):
     class _FakeAtlas:
         resolution = (39.0, 39.0, 39.0)
 
-    monkeypatch.setattr(atlas, "get_atlas", lambda: _FakeAtlas())
+    monkeypatch.setattr(regions, "get_atlas", lambda: _FakeAtlas())
     profile = np.zeros(100)
     profile[10] = 5.0
     atlas._AP_PROFILE_CACHE["FAKE"] = profile
@@ -102,14 +103,15 @@ def test_mesh_and_volume_centroids_agree_on_cortical_structures():
 def test_descendant_bearing_structure_is_binarized():
     """V2's annotation is labelled V2M/V2L, not V2.
 
-    ``get_structure_mask`` returns an *id-valued* mask, so failing to binarize
-    would weight each voxel by its structure id and put V2's centroid nowhere
-    near the structure.
+    brainglobe-atlasapi < 3 returned an *id-valued* mask from ``get_structure_mask``;
+    failing to binarize would weight each voxel by its structure id and put V2's
+    centroid nowhere near the structure. >= 3 returns 0/1, so this now guards the
+    binarization against regressing to id weighting.
     """
     profile = atlas.get_anterior_posterior_axis_profile("V2")
-    assert profile.sum() < atlas.get_atlas().annotation.size
+    assert profile.sum() < regions.get_atlas().annotation.size
     occupied = profile.nonzero()[0]
-    resolution = atlas.get_atlas().resolution[0]
+    resolution = regions.get_atlas().resolution[0]
     centroid = atlas.get_anterior_posterior_axis_coord("V2", method="volume")
     assert occupied[0] * resolution <= centroid <= occupied[-1] * resolution
 

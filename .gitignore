@@ -3,6 +3,7 @@ notebooks/*.html
 *.svg
 *.parquet
 ms/
+reviews/
 
 # R-build files
 offp_*.tar.gz

@@ -1,0 +1,43 @@
+# Manuscript Supplementary Table S6a: detectors against the manual annotation of early
+# recovery NREM sleep (formerly Table 1).
+#
+# Consumed by manuscript_tables.py (table_type: detector_agreement). Data produced by
+# cnpix_local_sleep `off-analysis export-detector-agreement` (requires NFS) from the scores
+# that notebooks/figures/batch_manual_vs_banded_and_morphological.ipynb saves.
+
+table_type: detector_agreement
+results_dir: inst
+data_csv: inst/extdata/manual_detector_agreement.csv
+output_dir: _output_manuscript
+sheet: "S6a Manual agreement"
+
+title: "Supplementary Table S6a. Agreement between automated OFF-period detectors and manual annotation of early recovery NREM sleep."
+caption: >-
+  Agreement (mean ± s.d. across annotated cortical structures) between each automated
+  detector and the manually segmented OFF periods, computed over the 3.1–6.9 min (median 3.4 min) of manually
+  annotated early-recovery NREM sleep on the common set of detection channels.
+  Sensitivity, recall (fraction of manually labeled pixels recovered); precision, fraction
+  of detected pixels that were manually labeled; F1, harmonic mean of precision and
+  sensitivity; IoU, intersection over union; event recall, fraction of manually segmented
+  OFF periods that share at least one pixel with a detection; event precision, fraction of
+  detections that share at least one pixel with a manually segmented OFF period; OFFs per
+  minute, mean number of OFF periods detected per minute of annotated recording on the
+  detection channels (the annotators marked 84 ± 24 per minute). Greedy-tiled bands could
+  be constructed for only 20 of the 28 structures (those with sufficient firing rate); the
+  other rows summarize all 28 annotated structures that are among the 29
+  subject-structure pairs analyzed elsewhere.
+
+row_header: Detector
+detectors:
+  llas: "Morphological, relaxed"
+  clas: "Morphological, stringent"
+  banded-fixed_tiled: "Unit-based, fixed-tiled"
+  banded-greedy_fr: "Unit-based, greedy-tiled"
+columns:
+  - {annotation: NREM, metric: F1, label: F1}
+  - {annotation: NREM, metric: IoU, label: IoU}
+  - {annotation: NREM, metric: sensitivity, label: Sensitivity}
+  - {annotation: NREM, metric: precision, label: Precision}
+  - {annotation: NREM, metric: event_recall, label: Event recall}
+  - {annotation: NREM, metric: event_precision, label: Event precision}
+  - {annotation: NREM, metric: offs_per_minute, label: OFFs per minute, decimals: 0}

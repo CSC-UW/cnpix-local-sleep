@@ -11,7 +11,8 @@ build_correlation_frame(
   rebound_post = REBOUND_POST,
   rebound_baseline = REBOUND_BASELINE,
   response_metric = metric,
-  response_data = NULL
+  response_data = NULL,
+  rebound_scale = c("difference", "log_ratio")
 )
 }
 \arguments{
@@ -30,6 +31,9 @@ response \code{y} (defaults \link{REBOUND_POST}, \link{REBOUND_BASELINE}).}
 
 \item{response_data}{Optional frame supplying \code{response_metric} at the rebound
 conditions. \code{NULL} (default) means take the response from \code{d} too.}
+
+\item{rebound_scale}{\code{"difference"} (default) for \code{y = post - baseline}, or
+\code{"log_ratio"} for \code{y = log(post / baseline)}.}
 }
 \value{
 Data frame with columns \code{subject} (factor), \code{probe}, \code{structure}

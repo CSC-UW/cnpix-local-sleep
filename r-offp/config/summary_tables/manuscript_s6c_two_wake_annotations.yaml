@@ -1,0 +1,37 @@
+# Manuscript Supplementary Table S6c: the last-hour and sleep-deprivation wake annotations
+# against each other and against each detector, on the images both cover.
+#
+# Consumed by manuscript_tables.py (table_type: detector_agreement). Data produced by
+# cnpix_local_sleep `off-analysis export-detector-agreement` (requires NFS) from the scores
+# that manual_annotation_sets.ipynb saves (annotator_overlap.overlap_structure).
+
+table_type: detector_agreement
+results_dir: inst
+data_csv: inst/extdata/manual_detector_agreement.csv
+output_dir: _output_manuscript
+sheet: "S6c Two wake annotations"
+
+title: "Supplementary Table S6c. Agreement between two annotations of the same wake images, and of each detector with each annotation."
+caption: >-
+  The last hour of sleep deprivation, on the images covered by both the last-hour
+  annotation and the sleep-deprivation annotation of Supplementary Table S6b (13
+  structures in 8 rats; 19–60 min per structure). Each row gives the agreement of the
+  other annotation, or of a detector, with the annotation named in the column heading,
+  over every image. Mean ± s.d. across structures. The last-hour annotation marked 1.0 OFF
+  periods per minute and the sleep-deprivation annotation 0.5; the detectors marked 5.6
+  (relaxed), 0.6 (stringent), 41.9 (fixed-tiled) and 9.6 (greedy-tiled).
+
+row_header: ""
+detectors:
+  annotation: "Other annotation"
+  llas: "Morphological, relaxed"
+  clas: "Morphological, stringent"
+  banded-fixed_tiled: "Unit-based, fixed-tiled"
+  banded-greedy_fr: "Unit-based, greedy-tiled"
+columns:
+  - {annotation: overlap, reference: Wake, metric: F1, label: F1, group: "Reference: last-hour annotation"}
+  - {annotation: overlap, reference: Wake, metric: event_recall, label: Event recall, group: "Reference: last-hour annotation"}
+  - {annotation: overlap, reference: Wake, metric: event_precision, label: Event precision, group: "Reference: last-hour annotation"}
+  - {annotation: overlap, reference: SD, metric: F1, label: F1, group: "Reference: sleep-deprivation annotation"}
+  - {annotation: overlap, reference: SD, metric: event_recall, label: Event recall, group: "Reference: sleep-deprivation annotation"}
+  - {annotation: overlap, reference: SD, metric: event_precision, label: Event precision, group: "Reference: sleep-deprivation annotation"}

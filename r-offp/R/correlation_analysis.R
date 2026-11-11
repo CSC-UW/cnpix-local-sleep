@@ -18,8 +18,9 @@
 # already subtracts every grouping factor so crossed `(1|subject)+(1|structure)`
 # works unchanged). Delete this file, `config/nod_rebound_correlation.yaml`,
 # `scripts/*correlation*.R`, `tests/testthat/test-correlation_analysis.R`, the
-# `nod_rebound_correlation_*` extdata parquets, and `_output_correlations/` to
-# remove the feature entirely; nothing in the existing files is modified.
+# `nod_rebound_correlation_*` extdata parquets, `manual_event_agreement.csv`, and
+# `_output_correlations/` to remove the feature entirely; nothing in the existing
+# files is modified.
 
 # -------------------- Defaults (the NOD -> NREM.Rebound case) --------------------
 
@@ -68,6 +69,35 @@ load_nod_rebound_correlation_data <- function(off_type = "llas") {
   arrow::read_parquet(path)
 }
 
+#' Load the per-structure agreement of detected OFFs with the manual labels
+#'
+#' Reads `manual_event_agreement.csv` from the package `extdata`: the event recall
+#' and event precision of the morphological OFFs against the manual annotation
+#' (the scoring behind Table 1), one row per `(subject, probe, structure,
+#' off_type)`. Produced by cnpix_local_sleep's `off-analysis export-event-agreement`.
+#'
+#' @param off_type OFF type whose agreement to return (`"llas"`, `"clas"` or
+#'   `"blas"`).
+#' @return Data frame with `subject`, `probe`, `structure`, `event_recall`,
+#'   `event_precision`.
+#' @export
+load_event_agreement <- function(off_type) {
+  fname <- "manual_event_agreement.csv"
+  path <- system.file("extdata", fname, package = "offp")
+  assertthat::assert_that(
+    nzchar(path),
+    msg = paste0(
+      "Event agreement file not found in extdata: ", fname, ". ",
+      "Run cnpix_local_sleep's `off-analysis export-event-agreement` first."
+    )
+  )
+  d <- utils::read.csv(path, stringsAsFactors = FALSE)
+  assertthat::assert_that(off_type %in% d$off_type,
+    msg = paste0("No event agreement rows for off_type '", off_type, "'"))
+  d <- d[d$off_type == off_type, , drop = FALSE]
+  d[, c("subject", "probe", "structure", "event_recall", "event_precision")]
+}
+
 #' Build the per-(subject, probe, structure) correlation frame
 #'
 #' Reshapes the long correlation input into one row per
@@ -96,6 +126,8 @@ load_nod_rebound_correlation_data <- function(off_type = "llas") {
 #' @param response_metric Response (y) metric column name (default `metric`).
 #' @param response_data Optional frame supplying `response_metric` at the rebound
 #'   conditions. `NULL` (default) means take the response from `d` too.
+#' @param rebound_scale `"difference"` (default) for `y = post - baseline`, or
+#'   `"log_ratio"` for `y = log(post / baseline)`.
 #' @return Data frame with columns `subject` (factor), `probe`, `structure`
 #'   (factor), `x`, `y`.
 #' @export
@@ -104,7 +136,9 @@ build_correlation_frame <- function(d, metric,
                                     rebound_post = REBOUND_POST,
                                     rebound_baseline = REBOUND_BASELINE,
                                     response_metric = metric,
-                                    response_data = NULL) {
+                                    response_data = NULL,
+                                    rebound_scale = c("difference", "log_ratio")) {
+  rebound_scale <- match.arg(rebound_scale)
   assertthat::assert_that(metric %in% names(d),
     msg = paste0("Metric '", metric, "' not found in correlation input data"))
   response_source <- if (is.null(response_data)) d else response_data
@@ -136,7 +170,10 @@ build_correlation_frame <- function(d, metric,
   m <- merge(x_df, post_df, by = id_cols)
   m <- merge(m, base_df, by = id_cols)
   m$x <- as.double(m$.x)
-  m$y <- as.double(m$.post) - as.double(m$.base)
+  m$y <- switch(rebound_scale,
+    difference = as.double(m$.post) - as.double(m$.base),
+    log_ratio = log(as.double(m$.post) / as.double(m$.base))
+  )
   m <- m[stats::complete.cases(m[, c("x", "y")]), , drop = FALSE]
 
   m$subject <- factor(as.character(m$subject))
@@ -144,24 +181,113 @@ build_correlation_frame <- function(d, metric,
   m[, c(id_cols, "x", "y"), drop = FALSE]
 }
 
+#' Per-combo covariates for the correlation
+#'
+#' One column per name in `terms`, keyed by `(subject, probe, structure)`:
+#'
+#' * `baseline_<metric>`: `<metric>` at `rebound_baseline`, from `data`.
+#' * `predictor_<metric>`: `<metric>` at `predictor_condition`, from `data`.
+#' * `ap_coord`: the structure's anterior-posterior coordinate (`AP.Coord`), in mm.
+#' * `delta_rebound`: the `NREM.Rebound` of `mean_zlog_delta`, from
+#'   [load_bandpower_condition_means()].
+#' * `late_nod_delta`: `mean_zlog_delta` at `Late.NOD.Wake`, from the same frame.
+#' * `intrusion_fraction`: the share of the `NOD` window outside `NOD.Wake`. Each
+#'   window's duration is recovered as `count / rate` from the `llas` correlation
+#'   input, which has OFFs in every window.
+#' * `event_recall`, `event_precision`: from [load_event_agreement()] for
+#'   `off_type`.
+#'
+#' Combos missing from any source are dropped.
+#'
+#' @param terms Character vector of covariate names.
+#' @param data Correlation input for `off_type`, from
+#'   [load_nod_rebound_correlation_data()].
+#' @param off_type One of [OFF_TYPES].
+#' @param predictor_condition,rebound_post,rebound_baseline Condition names (see
+#'   [build_correlation_frame()]).
+#' @return Data frame with `subject`, `probe`, `structure` and one column per term.
+#' @export
+build_correlation_covariates <- function(terms, data, off_type,
+                                         predictor_condition = PREDICTOR_CONDITION,
+                                         rebound_post = REBOUND_POST,
+                                         rebound_baseline = REBOUND_BASELINE) {
+  id_cols <- c("subject", "probe", "structure")
+  value_at <- function(src, col, cond) {
+    assertthat::assert_that(col %in% names(src),
+      msg = paste0("Covariate column '", col, "' not found"))
+    s <- src[as.character(src$condition) == cond, , drop = FALSE]
+    assertthat::assert_that(nrow(s) > 0,
+      msg = paste0("No rows for condition '", cond, "' in the covariate source"))
+    data.frame(s[id_cols], value = as.double(s[[col]]))
+  }
+  rebound_of <- function(src, col) {
+    m <- merge(value_at(src, col, rebound_post),
+               value_at(src, col, rebound_baseline), by = id_cols)
+    data.frame(m[id_cols], value = m$value.x - m$value.y)
+  }
+  covariate <- function(term) {
+    if (startsWith(term, "baseline_")) {
+      return(value_at(data, sub("^baseline_", "", term), rebound_baseline))
+    }
+    if (startsWith(term, "predictor_")) {
+      return(value_at(data, sub("^predictor_", "", term), predictor_condition))
+    }
+    switch(term,
+      ap_coord = {
+        s <- unique(data[, c(id_cols, "AP.Coord")])
+        data.frame(s[id_cols], value = s$AP.Coord / 1000)
+      },
+      delta_rebound = rebound_of(load_bandpower_condition_means(), "mean_zlog_delta"),
+      late_nod_delta = value_at(load_bandpower_condition_means(),
+                                "mean_zlog_delta", "Late.NOD.Wake"),
+      intrusion_fraction = {
+        llas <- load_nod_rebound_correlation_data("llas")
+        llas$duration <- llas$count / llas$rate
+        m <- merge(value_at(llas, "duration", "NOD.Wake"),
+                   value_at(llas, "duration", "NOD"), by = id_cols)
+        data.frame(m[id_cols], value = 1 - m$value.x / m$value.y)
+      },
+      event_recall = ,
+      event_precision = {
+        s <- load_event_agreement(off_type)
+        data.frame(s[id_cols], value = s[[term]])
+      },
+      stop("Unknown correlation covariate '", term, "'")
+    )
+  }
+
+  out <- NULL
+  for (term in terms) {
+    s <- covariate(term)
+    assertthat::assert_that(!anyDuplicated(s[id_cols]),
+      msg = paste0("Covariate '", term, "' has more than one value per combo"))
+    names(s)[names(s) == "value"] <- term
+    out <- if (is.null(out)) s else merge(out, s, by = id_cols)
+  }
+  out
+}
+
 # -------------------- Model fitting + slope test --------------------
 
 #' Fit full and null mixed models for the correlation
 #'
-#' Full: `y ~ x + <re_terms>`. Null: `y ~ 1 + <re_terms>`. A likelihood ratio
-#' test of full vs null is the test of the slope of `x`. Generalizes f25a's
-#' `fit_basic_models` to an arbitrary set of crossed random-intercept terms (e.g.
-#' `c("(1|subject)")` or `c("(1|subject)","(1|structure)")`).
+#' Full: `y ~ x + <covariates> + <re_terms>`. Null: `y ~ 1 + <covariates> +
+#' <re_terms>`. A likelihood ratio test of full vs null is the test of the slope
+#' of `x` given the covariates. Generalizes f25a's `fit_basic_models` to an
+#' arbitrary set of crossed random-intercept terms (e.g. `c("(1|subject)")` or
+#' `c("(1|subject)","(1|structure)")`).
 #'
-#' @param d Data frame with `x`, `y`, and the grouping columns named in
-#'   `re_terms`.
+#' @param d Data frame with `x`, `y`, the covariate columns, and the grouping
+#'   columns named in `re_terms`.
 #' @param re_terms Character vector of random-effect terms.
+#' @param covariates Character vector of fixed-effect covariate columns kept in
+#'   both models (default none).
 #' @return Named list with `full` and `null` `lmerMod` objects.
 #' @export
-fit_correlation_models <- function(d, re_terms) {
+fit_correlation_models <- function(d, re_terms, covariates = character()) {
   assertthat::assert_that(length(re_terms) >= 1)
-  f_full <- stats::reformulate(c("x", re_terms), response = "y")
-  f_null <- stats::reformulate(c("1", re_terms), response = "y")
+  f_full <- stats::reformulate(c("x", covariates, re_terms), response = "y")
+  f_null <- stats::reformulate(c("1", covariates, re_terms), response = "y")
   m_full <- lme4::lmer(f_full, data = d, REML = FALSE)
   m_null <- lme4::lmer(f_null, data = d, REML = FALSE)
   list(full = m_full, null = m_null)
@@ -211,6 +337,27 @@ test_correlation_slope <- function(models, d, conf_level = 0.95) {
   )
 }
 
+#' Spearman correlations of covariates with the correlation predictor and response
+#'
+#' For each column named in `terms`, Spearman's rho with `x` and with `y` across
+#' the rows of `d`, each with its two-sided p value from the asymptotic t
+#' approximation.
+#'
+#' @param d The data frame the models were fit on.
+#' @param terms Character vector of covariate columns.
+#' @return Data frame with `term`, `rho_x`, `p_x`, `rho_y`, `p_y`.
+#' @export
+correlation_spearman <- function(d, terms) {
+  rows <- lapply(terms, function(term) {
+    tx <- stats::cor.test(d[[term]], d$x, method = "spearman", exact = FALSE)
+    ty <- stats::cor.test(d[[term]], d$y, method = "spearman", exact = FALSE)
+    data.frame(term = term,
+               rho_x = unname(tx$estimate), p_x = tx$p.value,
+               rho_y = unname(ty$estimate), p_y = ty$p.value)
+  })
+  do.call(rbind, rows)
+}
+
 # -------------------- Plot --------------------
 
 #' Plot the NOD-activity vs NREM.Rebound correlation
@@ -249,6 +396,16 @@ plot_nod_rebound_correlation <- function(result, fig_path = NULL) {
     result$response_metric
   }
   response_lab <- get_display_label(response_metric)
+  rebound_lab <- if (identical(result$rebound_scale, "log_ratio")) {
+    ", NREM.Rebound (log ratio)"
+  } else {
+    ", NREM.Rebound"
+  }
+  covariate_lab <- if (length(result$covariates) > 0) {
+    paste0(" + ", paste(result$covariates, collapse = " + "))
+  } else {
+    ""
+  }
   gg <- ggplot2::ggplot(d, ggplot2::aes(x = .data$x, y = .data$y)) +
     ggplot2::geom_ribbon(
       data = pred,
@@ -265,11 +422,12 @@ plot_nod_rebound_correlation <- function(result, fig_path = NULL) {
     ) +
     ggplot2::labs(
       x = paste0(metric_lab, ", ", result$predictor_condition),
-      y = paste0(response_lab, ", NREM.Rebound"),
+      y = paste0(response_lab, rebound_lab),
       colour = "subject",
       title = sprintf(
-        "%s -> %s / %s [%s]: slope=%.3g, p=%.3g, f2=%.3g, n=%d (%d subj)",
-        result$metric, response_metric, result$off_type, result$model_def$name,
+        "%s%s -> %s / %s [%s]: slope=%.3g, p=%.3g, f2=%.3g, n=%d (%d subj)",
+        result$metric, covariate_lab, response_metric, result$off_type,
+        result$model_def$name,
         result$test$slope, result$test$pval, result$test$fsquared,
         result$test$n, result$test$n_subjects
       )
@@ -308,11 +466,18 @@ plot_nod_rebound_correlation <- function(result, fig_path = NULL) {
 #'   [build_correlation_frame()]).
 #' @param response_metric Response (y) metric column name (default `metric`, the
 #'   self-rebound case). When it differs, `y` is that metric's `NREM.Rebound`.
+#' @param rebound_scale `"difference"` (default) or `"log_ratio"` (see
+#'   [build_correlation_frame()]).
+#' @param covariates Covariates from [build_correlation_covariates()] added to both
+#'   the full and the null model, so the LRT tests `x` given them.
+#' @param spearman Further covariates whose Spearman correlations with `x` and `y`
+#'   are reported without entering the models. The `covariates` are always
+#'   reported.
 #' @param data Optional pre-loaded correlation input for `off_type`.
 #' @param response_data Optional pre-loaded response frame carrying
-#'   `response_metric` at the rebound conditions. When `response_metric` differs
-#'   from `metric` and this is `NULL`, the band-power condition means are loaded
-#'   via [load_bandpower_condition_means()].
+#'   `response_metric` at the rebound conditions. When `response_metric` is not a
+#'   column of `data` and this is `NULL`, the band-power condition means are
+#'   loaded via [load_bandpower_condition_means()].
 #' @param save_ggplot_rds If `TRUE`, also save the ggplot object as `.rds`.
 #' @return Invisibly, the full result list (also saved as `results.rds`).
 #' @export
@@ -325,6 +490,9 @@ run_nod_rebound_correlation <- function(
   rebound_post = REBOUND_POST,
   rebound_baseline = REBOUND_BASELINE,
   response_metric = metric,
+  rebound_scale = "difference",
+  covariates = character(),
+  spearman = character(),
   data = NULL,
   response_data = NULL,
   save_ggplot_rds = TRUE
@@ -340,20 +508,32 @@ run_nod_rebound_correlation <- function(
     data <- load_nod_rebound_correlation_data(off_type)
   }
   cross_metric <- !identical(response_metric, metric)
-  if (cross_metric && is.null(response_data)) {
+  response_in_data <- response_metric %in% names(data)
+  if (!response_in_data && is.null(response_data)) {
     response_data <- load_bandpower_condition_means()
   }
   d <- build_correlation_frame(data, metric, predictor_condition,
                                rebound_post, rebound_baseline,
                                response_metric = response_metric,
-                               response_data = if (cross_metric) response_data else NULL)
+                               response_data = if (response_in_data) NULL else response_data,
+                               rebound_scale = rebound_scale)
+  terms <- unique(c(covariates, spearman))
+  if (length(terms) > 0) {
+    d <- merge(d, build_correlation_covariates(terms, data, off_type,
+                                               predictor_condition, rebound_post,
+                                               rebound_baseline),
+               by = c("subject", "probe", "structure"))
+    d <- d[stats::complete.cases(d[, terms, drop = FALSE]), , drop = FALSE]
+    d$subject <- factor(as.character(d$subject))
+    d$structure <- factor(as.character(d$structure))
+  }
   assertthat::assert_that(
     nrow(d) >= 3,
     msg = paste0("Too few complete (subject, probe, structure) combos (",
                  nrow(d), ") to fit a correlation for '", metric, "'")
   )
 
-  models <- fit_correlation_models(d, model_def$re_terms)
+  models <- fit_correlation_models(d, model_def$re_terms, covariates)
   test <- test_correlation_slope(models, d)
 
   result <- list(
@@ -362,11 +542,14 @@ run_nod_rebound_correlation <- function(
     response = "NREM.Rebound",
     predictor_condition = predictor_condition,
     rebound_conditions = c(rebound_post, rebound_baseline),
+    rebound_scale = rebound_scale,
+    covariates = covariates,
     off_type = off_type,
     model_def = model_def,
     data = d,
     models = models,
-    test = test
+    test = test,
+    spearman = if (length(terms) > 0) correlation_spearman(d, terms) else NULL
   )
 
   spec_dir <- file.path(output_dir, model_def$name)
@@ -409,6 +592,8 @@ build_correlation_json_summary <- function(result) {
     response = result$response,
     predictor_condition = result$predictor_condition,
     rebound_conditions = I(result$rebound_conditions),
+    rebound_scale = result$rebound_scale,
+    covariates = I(as.character(result$covariates)),
     off_type = result$off_type,
     model = result$model_def$name,
     re_terms = I(result$model_def$re_terms),
@@ -419,7 +604,8 @@ build_correlation_json_summary <- function(result) {
     significant = t$significant,
     cohens_f2 = t$fsquared,
     n = t$n,
-    n_subjects = t$n_subjects
+    n_subjects = t$n_subjects,
+    spearman = if (is.null(result$spearman)) list() else result$spearman
   )
 }
 
@@ -432,15 +618,33 @@ build_correlation_text_summary <- function(result) {
   } else {
     result$response_metric
   }
+  rebound <- if (identical(result$rebound_scale, "log_ratio")) {
+    paste0("log(", result$rebound_conditions[1], " / ", result$rebound_conditions[2], ")")
+  } else {
+    paste(result$rebound_conditions[1], "-", result$rebound_conditions[2])
+  }
+  covariates <- if (length(result$covariates) > 0) {
+    paste(result$covariates, collapse = ", ")
+  } else {
+    "none"
+  }
+  spearman <- if (is.null(result$spearman)) {
+    character()
+  } else {
+    c("", "--- Spearman correlations of covariates ---",
+      sprintf("%s: rho(x) = %.3g (p = %.3g), rho(y) = %.3g (p = %.3g)",
+              result$spearman$term, result$spearman$rho_x, result$spearman$p_x,
+              result$spearman$rho_y, result$spearman$p_y))
+  }
   c(
     paste("NOD-activity vs NREM.Rebound correlation:", result$metric,
           "->", response_metric),
     paste("Model name:", result$model_def$name),
     paste("RE terms:", paste(result$model_def$re_terms, collapse = ", ")),
+    paste("Covariates:", covariates),
     paste("OFF type:", result$off_type),
     paste0("Predictor (x): ", result$metric, " @ ", result$predictor_condition),
-    paste0("Response  (y): ", response_metric, " NREM.Rebound (",
-           result$rebound_conditions[1], " - ", result$rebound_conditions[2], ")"),
+    paste0("Response  (y): ", response_metric, " NREM.Rebound (", rebound, ")"),
     "",
     "--- slope of x (LRT full vs null) ---",
     paste("slope:", format(t$slope, digits = 4)),
@@ -450,6 +654,7 @@ build_correlation_text_summary <- function(result) {
     paste("Significant:", t$significant),
     paste("Cohen's f^2:", format(round(t$fsquared, 4), nsmall = 4)),
     paste0("n = ", t$n, " (subject x probe x structure) combos, ",
-           t$n_subjects, " subjects")
+           t$n_subjects, " subjects"),
+    spearman
   )
 }

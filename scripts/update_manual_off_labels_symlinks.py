@@ -1,7 +1,7 @@
-"""Maintain ``manual_off_labels.npz`` -> highest-version symlinks under offproj_s3.
+"""Maintain ``manual_off_labels.npz`` -> highest-version symlinks under samoffs_s3.
 
 For every directory under
-``<offproj_s3>/<experiment>/{subject}/probe={probe}/condition={condition}/``
+``<samoffs_s3>/<experiment>/{subject}/probe={probe}/condition={condition}/``
 that contains one or more ``manual_off_labels_v{N}.npz`` files, this script
 ensures a sibling ``manual_off_labels.npz`` symlink (relative target) points to
 the highest-N version present.
@@ -33,19 +33,16 @@ import argparse
 import re
 from pathlib import Path
 
-import wisc_ecephys_tools as wet
+from cnpix.evaluation import paths as label_paths
 
 from cnpix_local_sleep import const
-
 
 VERSION_RE = re.compile(r"^manual_off_labels_v(\d+)\.npz$")
 SYMLINK_NAME = "manual_off_labels.npz"
 
 
 def get_experiment_root() -> Path:
-    return wet.get_sglx_project("offproj_s3").get_experiment_directory(
-        const.EXPERIMENT
-    )
+    return label_paths.experiment_root(label_paths.MANUAL_LABELS_PROJECT, const.EXPERIMENT)
 
 
 def find_label_dirs(root: Path) -> dict[Path, list[tuple[int, str]]]:

@@ -14,7 +14,7 @@ requires-python = ">=3.14"
 # external clone resolves them without the rest of the workspace. See
 # gfys_workspace/AGENTS.md, "Package Dual-Use Install Pattern".
 dependencies = [
-    "brainglobe-atlasapi",
+    "brainglobe-atlasapi>=3.0.2",
     "click",
     "cnpix @ git+https://github.com/CSC-UW/cnpix.git@main",
     "dask[complete]",
@@ -23,7 +23,8 @@ dependencies = [
     "matplotlib",
     "numba",
     "numpy",
-    "ome-zarr>=0.11.0,<0.12",
+    "numcodecs",
+    "ome-zarr>=0.12",
     "on_off_detection @ git+https://github.com/CSC-UW/on_off_detection.git@main",
     "openpyxl",
     "pandas",

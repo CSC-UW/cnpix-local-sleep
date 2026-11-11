@@ -13,6 +13,9 @@ run_nod_rebound_correlation(
   rebound_post = REBOUND_POST,
   rebound_baseline = REBOUND_BASELINE,
   response_metric = metric,
+  rebound_scale = "difference",
+  covariates = character(),
+  spearman = character(),
   data = NULL,
   response_data = NULL,
   save_ggplot_rds = TRUE
@@ -34,12 +37,22 @@ run_nod_rebound_correlation(
 \item{response_metric}{Response (y) metric column name (default \code{metric}, the
 self-rebound case). When it differs, \code{y} is that metric's \code{NREM.Rebound}.}
 
+\item{rebound_scale}{\code{"difference"} (default) or \code{"log_ratio"} (see
+\code{\link[=build_correlation_frame]{build_correlation_frame()}}).}
+
+\item{covariates}{Covariates from \code{\link[=build_correlation_covariates]{build_correlation_covariates()}} added to both
+the full and the null model, so the LRT tests \code{x} given them.}
+
+\item{spearman}{Further covariates whose Spearman correlations with \code{x} and \code{y}
+are reported without entering the models. The \code{covariates} are always
+reported.}
+
 \item{data}{Optional pre-loaded correlation input for \code{off_type}.}
 
 \item{response_data}{Optional pre-loaded response frame carrying
-\code{response_metric} at the rebound conditions. When \code{response_metric} differs
-from \code{metric} and this is \code{NULL}, the band-power condition means are loaded
-via \code{\link[=load_bandpower_condition_means]{load_bandpower_condition_means()}}.}
+\code{response_metric} at the rebound conditions. When \code{response_metric} is not a
+column of \code{data} and this is \code{NULL}, the band-power condition means are
+loaded via \code{\link[=load_bandpower_condition_means]{load_bandpower_condition_means()}}.}
 
 \item{save_ggplot_rds}{If \code{TRUE}, also save the ggplot object as \code{.rds}.}
 }

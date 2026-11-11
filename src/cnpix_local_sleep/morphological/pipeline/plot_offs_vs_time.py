@@ -10,7 +10,6 @@ import xarray as xr
 
 from cnpix_local_sleep import files, hyp, plots
 from cnpix_local_sleep.files import get_subject_plot_dir
-from cnpix_local_sleep.morphological.common import MorphologicalSourceConfig
 
 NREM_CONDITIONS = [
     "Early.BSL.NREM",
@@ -381,23 +380,3 @@ def plot_offs_vs_time(
         rows=rows,
         **data,
     )
-
-
-def do_project(source_config: MorphologicalSourceConfig):
-    """Plot OFF timecourses for every included structure of one morphological variant.
-
-    ``source_config`` supplies both the on-disk ``method=`` path segment
-    (via ``files_module``) and the inclusion list. No default; the caller
-    must pass ``cnpix_local_sleep.morphological.mua.SOURCE_CONFIG``.
-    """
-    llas_all = pd.read_parquet(source_config.files_module.get_path("llas_offs.parquet"))
-    spsl = source_config.get_subject_probe_structure_list(
-        exclude_thalamus=True,
-        exclude_striatum=True,
-        exclude_other=True,
-    )
-
-    for subject, probe, structure in spsl:
-        print(f"Plotting OFF timecourses for {subject} {probe} {structure}")
-        data = _prepare_data(subject, probe, structure, llas_all)
-        plot_offs_vs_time(subject, probe, structure, source_config.variant, data)

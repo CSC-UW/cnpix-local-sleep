@@ -116,7 +116,7 @@ entries:
   - [mean_offset_mad, blas, nrem, crossed_interaction]
   - [mean_offset_mad, blas, wake, crossed_interaction]
 
-  # adj_mean_onset_mad / adj_mean_offset_mad (size-adjusted; replacement S2).
+  # adj_mean_onset_mad / adj_mean_offset_mad (size-adjusted; Supplementary Fig. 5c).
   # Medium+Large only -- see config/cx_homeostasis.yaml for why the All-OFFs
   # and Small classes are not fitted.
   - [adj_mean_onset_mad, clas, nrem, crossed_interaction]

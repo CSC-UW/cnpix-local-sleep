@@ -1,0 +1,76 @@
+# Manuscript Supplementary Table S4c: covariate-adjusted and alternative versions of
+# the S4a headline fit (whole-window SD predictor, (1|subject) model).
+#
+# Consumed by manuscript_tables.py (table_type: correlation_alternatives). Rows 1-8,
+# 9 and 12 read the `alternatives` fits of config/nod_rebound_correlation.yaml
+# (_output_correlations/alternatives/); the two delta-power responses are the
+# existing cross-metric fits of the base tree. The unadjusted fits are in S4a.
+
+table_type: correlation_alternatives
+results_dir: _output_correlations
+output_dir: _output_manuscript
+
+title: "Supplementary Table S4c. Covariate-adjusted and alternative models of the sleep deprivation–rebound relation."
+caption: >-
+  Covariate-adjusted and alternative versions of the headline model of
+  Supplementary Table S4a, y ~ x + (1 | subject), fit by maximum likelihood across
+  unique subject-structure pairs, with the sleep-deprivation (SD) predictor measured
+  over the whole SD window. Upper section:
+  x is the OFF rate over the SD window and y its NREM rebound (early recovery NREM
+  minus the circadian-matched baseline). Each row adds one covariate c to both
+  models, y ~ x + c + (1 | subject) against y ~ c + (1 | subject), so p tests the
+  slope of x with c held fixed. The covariates are the rebound of cortical delta
+  power; cortical delta power in late SD; the fraction of the SD window occupied by
+  sleep intrusions; the anterior-posterior coordinate of the structure; the
+  baseline OFF rate; and the per-structure event recall and event precision of the
+  detected OFFs against the manual annotation of Supplementary Table S6a, which
+  covers 28 of the 29 pairs. The Spearman columns give the rank correlation of c
+  with x and with y
+  across the same pairs (p from the t approximation). Lower section, without
+  covariates unless stated: y replaced by the natural log of the ratio of recovery
+  to baseline OFF rate; x replaced by the total normalized OFF area over the SD
+  window (Spearman column: its rank correlation with the SD OFF rate); y replaced by
+  the delta-power rebound, for either predictor; and the total-area model with the
+  baseline total area as covariate. Slope is the fixed-effect estimate for x with
+  its Wald 95% CI, in the units given; p is the likelihood-ratio test of x
+  (two-sided, unadjusted); n = unique subject-structure pairs entering the fit.
+  Stars: *** <0.001, ** <0.01, * <0.05.
+
+# Block order, as in S4a.
+datasets: [llas, clas]
+
+sections:
+  - title: "Covariate adjustment (x = SD OFF rate, y = OFF-rate rebound)"
+    fits:
+      - {path: "alternatives/{dataset}/rate__adj__delta_rebound/NOD/subject",
+         label: "+ delta-power rebound", units: "Hz per Hz"}
+      - {path: "alternatives/{dataset}/rate__adj__late_nod_delta/NOD/subject",
+         label: "+ late-SD delta power", units: "Hz per Hz"}
+      - {path: "alternatives/{dataset}/rate__adj__intrusion_fraction/NOD/subject",
+         label: "+ sleep-intrusion fraction of SD", units: "Hz per Hz"}
+      - {path: "alternatives/{dataset}/rate__adj__ap_coord/NOD/subject",
+         label: "+ anterior-posterior coordinate", units: "Hz per Hz"}
+      - {path: "alternatives/{dataset}/rate__adj__baseline_rate/NOD/subject",
+         label: "+ baseline OFF rate", units: "Hz per Hz"}
+      - {path: "alternatives/{dataset}/rate__adj__event_recall/NOD/subject",
+         label: "+ event recall (manual annotation)", units: "Hz per Hz"}
+      - {path: "alternatives/{dataset}/rate__adj__event_precision/NOD/subject",
+         label: "+ event precision (manual annotation)", units: "Hz per Hz"}
+  - title: "Alternative predictors and responses"
+    fits:
+      - {path: "alternatives/{dataset}/rate__log_ratio/NOD/subject",
+         label: "x = SD OFF rate; y = ln(recovery / baseline OFF rate)",
+         units: "ln-ratio per Hz"}
+      - {path: "alternatives/{dataset}/total_area_norm__vs__rate/NOD/subject",
+         label: "x = SD total OFF area; y = OFF-rate rebound (ρ: SD OFF rate)",
+         units: "Hz per a.u.", spearman: [x]}
+      - {path: "{dataset}/rate__vs__mean_zlog_delta/NOD/subject",
+         label: "x = SD OFF rate; y = delta-power rebound", units: "z-log per Hz"}
+      - {path: "{dataset}/total_area_norm__vs__mean_zlog_delta/NOD/subject",
+         label: "x = SD total OFF area; y = delta-power rebound",
+         units: "z-log per a.u."}
+      - {path: "alternatives/{dataset}/total_area_norm__adj__baseline_total_area_norm/NOD/subject",
+         label: "x = SD total OFF area; y = total-area rebound; + baseline total area",
+         units: "a.u. per a.u."}
+
+sheet: "S4c SD-rebound covariates"

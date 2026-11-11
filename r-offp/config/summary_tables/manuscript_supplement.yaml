@@ -10,8 +10,14 @@ tables:
   - manuscript_s1a_homeostasis.yaml
   - manuscript_s2a_per_event.yaml
   - manuscript_s2b_epoched.yaml
+  - manuscript_s2c_per_event_by_band.yaml
+  - manuscript_s2d_per_event_multivariable.yaml
   - manuscript_s3a_locality.yaml
   - manuscript_s3b_size_globality.yaml
   - manuscript_s4a_sd_rebound.yaml
   - manuscript_s4b_robustness.yaml
+  - manuscript_s4c_sd_rebound_covariates.yaml
   - manuscript_s5_depth.yaml
+  - manuscript_s6a_detector_agreement.yaml
+  - manuscript_s6b_detector_agreement_by_state.yaml
+  - manuscript_s6c_two_wake_annotations.yaml

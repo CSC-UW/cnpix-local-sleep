@@ -26,7 +26,7 @@ caption: >-
   recovery NREM minus its circadian-matched baseline) on the same metric measured
   over the sleep-deprivation (SD) window, across unique subject-structure pairs
   (y ~ x + (1 | subject)). The SD predictor is measured over the whole SD window
-  (wake together with any sleep intrusions) or over its wake epochs only. Within
+  or over its wake epochs only. Within
   each block the four rows are the headline model, the same model with an added
   by-structure random intercept, and the headline model refit with the predictor
   rank- and log-transformed; the response is unchanged throughout. Slope is

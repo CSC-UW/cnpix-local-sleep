@@ -5,8 +5,9 @@
 # scripts/run_correlation_analysis.R and scripts/run_all_correlation_analyses.R,
 # which write to the separate _output_correlations/ root. Delete this file (plus
 # R/correlation_analysis.R, scripts/*correlation*.R, the
-# nod_rebound_correlation_*_offs.parquet extdata, and _output_correlations/) to
-# remove the feature entirely; nothing here affects the other analyses.
+# nod_rebound_correlation_*_offs.parquet and manual_event_agreement.csv extdata,
+# and _output_correlations/) to remove the feature entirely; nothing here affects
+# the other analyses.
 #
 # Tests whether a whole-period NOD OFF metric predicts that same metric's
 # NREM.Rebound (Early.REC.NREM - Early.REC.NREM.Match), across (subject, probe,
@@ -46,6 +47,8 @@ model_defaults:
 analyses_all: &analyses_all
   - {model: *subject}
   - {model: *subject_structure}
+analyses_subject: &analyses_subject
+  - {model: *subject}
 
 # By default each metric is correlated against its OWN NREM.Rebound, per dataset
 # (predictor x and response y are the same metric).
@@ -88,3 +91,28 @@ datasets:
       - {metric: rate, analyses: *analyses_all}
       - {metric: total_area_norm, response_metric: mean_zlog_delta, analyses: *analyses_all}
       - {metric: rate, response_metric: mean_zlog_delta, analyses: *analyses_all}
+
+# Covariate-adjusted and alternative-response refits of the headline model
+# (Supplementary Table S4c). Entries take the `datasets` schema plus:
+#   covariates:    covariates (offp::build_correlation_covariates()) added to both
+#                  the full and the null model, so the LRT tests x given them;
+#   rebound_scale: `log_ratio` makes y = log(post / baseline), not the difference;
+#   spearman:      covariates whose Spearman correlations with x and y are reported
+#                  without entering the model (`covariates` are always reported).
+# Written under _output_correlations/alternatives/ (scripts/correlation_runner.R).
+alternatives:
+  predictor_conditions: [NOD]
+  datasets: [llas, clas]
+  metrics:
+    - {metric: rate, covariates: [delta_rebound], analyses: *analyses_subject}
+    - {metric: rate, covariates: [late_nod_delta], analyses: *analyses_subject}
+    - {metric: rate, covariates: [intrusion_fraction], analyses: *analyses_subject}
+    - {metric: rate, covariates: [ap_coord], analyses: *analyses_subject}
+    - {metric: rate, covariates: [baseline_rate], analyses: *analyses_subject}
+    - {metric: rate, covariates: [event_recall], analyses: *analyses_subject}
+    - {metric: rate, covariates: [event_precision], analyses: *analyses_subject}
+    - {metric: rate, rebound_scale: log_ratio, analyses: *analyses_subject}
+    - {metric: total_area_norm, response_metric: rate, spearman: [predictor_rate],
+       analyses: *analyses_subject}
+    - {metric: total_area_norm, covariates: [baseline_total_area_norm],
+       analyses: *analyses_subject}

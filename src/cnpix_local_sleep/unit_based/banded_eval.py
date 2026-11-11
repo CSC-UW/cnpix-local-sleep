@@ -18,16 +18,86 @@ import numpy as np
 
 import pandas as pd
 
+from cnpix_local_sleep import hyp
 from cnpix_local_sleep.evaluation import config, grid, labels, metrics, rasterize
 
 
-def _consecutive_groups(idx: np.ndarray):
-    """Yield runs of consecutive integers from a sorted array."""
-    if not len(idx):
-        return
-    splits = np.where(np.diff(idx) > 1)[0] + 1
-    for grp in np.split(idx, splits):
-        yield grp
+def chunk_runs(ts: np.ndarray, chunks: np.ndarray) -> np.ndarray:
+    """``(n, 2)`` start and end times of the runs of time-contiguous samples in ``chunks``.
+
+    ``ts`` is the ``(n_chunks, samples_per_chunk)`` stack grid. Runs break where the step
+    between samples departs from the sample period by half a period or more (the
+    tolerance of :func:`cnpix.evaluation.labels.chunk_contiguity`), so a run never spans
+    time outside the condition; single-sample runs are dropped.
+    """
+    dt = np.median(np.diff(ts, axis=1))
+    t = ts[np.sort(chunks)].ravel()
+    breaks = np.flatnonzero(np.abs(np.diff(t) - dt) >= 0.5 * dt) + 1
+    runs = [r for r in np.split(t, breaks) if len(r) > 1]
+    return np.array([(r[0], r[-1]) for r in runs], dtype=float).reshape(-1, 2)
+
+
+def _bouts_frame(intervals: np.ndarray, state: str) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "start_time": intervals[:, 0],
+            "end_time": intervals[:, 1],
+            "duration": intervals[:, 1] - intervals[:, 0],
+            "state": state,
+        }
+    )
+
+
+def _intersect(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Intersection of two sorted, disjoint ``(n, 2)`` interval arrays."""
+    out, i, j = [], 0, 0
+    while i < len(a) and j < len(b):
+        lo, hi = max(a[i, 0], b[j, 0]), min(a[i, 1], b[j, 1])
+        if hi > lo:
+            out.append((lo, hi))
+        if a[i, 1] < b[j, 1]:
+            i += 1
+        else:
+            j += 1
+    return np.array(out, dtype=float).reshape(-1, 2)
+
+
+def _state_intervals(subject: str, probe: str, condition: str, state: str) -> np.ndarray:
+    hg = hyp.load_statistical_condition_hypnograms(subject, probe)[condition]
+    h = hg.keep_states([state]).sort_values("start_time")
+    return h[["start_time", "end_time"]].to_numpy(float)
+
+
+def wake_or_nrem_images(subject: str, probe: str, condition: str, ts: np.ndarray) -> np.ndarray:
+    """Per image of the ``(n_chunks, samples_per_chunk)`` grid ``ts``: True when the
+    condition's hypnogram scores every sample Wake or any sample NREM."""
+    hg = hyp.load_statistical_condition_hypnograms(subject, probe)[condition]
+    flat = ts.reshape(-1)
+    wake = np.asarray(hg.keep_states(["Wake"]).covers_time(flat)).reshape(ts.shape).all(1)
+    nrem = np.asarray(hg.keep_states(["NREM"]).covers_time(flat)).reshape(ts.shape).any(1)
+    return wake | nrem
+
+
+def fit_bouts(
+    subject: str, probe: str, eval_name: str, ts: np.ndarray, chunks: np.ndarray
+) -> dict[str, pd.DataFrame]:
+    """``{pass_name: bouts}`` on which the banded detector is fitted and run.
+
+    One pass over the runs of the scored ``chunks`` (:func:`chunk_runs`), named and
+    labeled after the evaluation; for an evaluation with ``states``, one pass per state
+    over that state's hypnogram time within those runs. The values are suitable as ``bouts_by_pass`` for
+    :func:`cnpix_local_sleep.unit_based.banded.detect_structure_banded`.
+    """
+    cfg = config.EVAL_CONFIGS[eval_name]
+    runs = chunk_runs(ts, chunks)
+    if "states" not in cfg:
+        return {eval_name: _bouts_frame(runs, eval_name)}
+    return {
+        state: _bouts_frame(
+            _intersect(_state_intervals(subject, probe, cfg["condition"], state), runs), state
+        )
+        for state in cfg["states"]
+    }
 
 
 def labeled_chunk_bouts(
@@ -42,28 +112,14 @@ def labeled_chunk_bouts(
 
     Detecting banded OFFs only over these windows bounds compute to the scoring
     domain (the labeled chunks for NREM; all chunks for Wake) instead of the full
-    48 h. Consecutive chunks are merged into single bouts to limit boundary
-    fragmentation. The returned frame is suitable as a ``bouts_by_pass`` value for
-    :func:`cnpix_local_sleep.unit_based.banded.detect_structure_banded`.
+    48 h. One bout per run of time-contiguous samples in those chunks
+    (:func:`chunk_runs`). The returned frame is suitable as a ``bouts_by_pass`` value
+    for :func:`cnpix_local_sleep.unit_based.banded.detect_structure_banded`.
     """
-    cfg = config.EVAL_CONFIGS[eval_name]
-    condition = cfg["condition"]
-    manual_raw = labels.load_manual_labels(subject, probe, condition, version=manual_version)
-    manual, _ = labels.qc_and_fix_labels(manual_raw)
-    ts_flat = grid.load_stack_times_flat(subject, probe, condition)
-    n_chunks = manual.shape[0]
-    spc = len(ts_flat) // n_chunks
-    chunks = np.sort(labels.select_chunks(manual, cfg["chunks"]))
-
-    rows = []
-    for grp in _consecutive_groups(chunks):
-        c0, c1 = int(grp[0]), int(grp[-1])
-        t0 = float(ts_flat[c0 * spc])
-        t1 = float(ts_flat[c1 * spc + spc - 1])
-        rows.append(
-            {"start_time": t0, "end_time": t1, "duration": t1 - t0, "state": state}
-        )
-    return pd.DataFrame(rows)
+    _, _, manual, ts_flat, _, chunks = eval_geometry(
+        subject, probe, eval_name, manual_version=manual_version
+    )
+    return _bouts_frame(chunk_runs(ts_flat.reshape(manual.shape[0], -1), chunks), state)
 
 
 def structure_row_mask(y_coords: np.ndarray, depth_lo: float, depth_hi: float) -> np.ndarray:
@@ -150,14 +206,22 @@ def banded_raster(
 
 
 def eval_geometry(subject, probe, eval_name, *, manual_version="latest"):
-    """Shared per-(subject, probe, eval) geometry: manual labels, grid, eval chunks."""
+    """Shared per-(subject, probe, eval) geometry: manual labels, grid, eval chunks.
+
+    An evaluation with ``states`` keeps only the images :func:`wake_or_nrem_images` accepts.
+    """
     cfg = config.EVAL_CONFIGS[eval_name]
     condition = cfg["condition"]
     manual_raw = labels.load_manual_labels(subject, probe, condition, version=manual_version)
-    manual, _violations = labels.qc_and_fix_labels(manual_raw)
+    manual, _violations = labels.qc_and_fix_labels(
+        manual_raw, contiguous=grid.stack_chunk_contiguity(subject, probe, condition)
+    )
     ts_flat = grid.load_stack_times_flat(subject, probe, condition)
     y_coords = grid.channel_depths(subject, probe)
     chunks = labels.select_chunks(manual, cfg["chunks"])
+    if "states" in cfg:
+        ts = ts_flat.reshape(manual.shape[0], -1)
+        chunks = chunks[wake_or_nrem_images(subject, probe, condition, ts)[chunks]]
     return cfg, condition, manual, ts_flat, y_coords, chunks
 
 

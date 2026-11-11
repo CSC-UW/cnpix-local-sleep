@@ -1,7 +1,8 @@
 #!/usr/bin/env Rscript
 #
 # Run all NOD-activity vs NREM.Rebound correlation analyses defined in
-# config/nod_rebound_correlation.yaml. Writes to _output_correlations/.
+# config/nod_rebound_correlation.yaml, including its `alternatives` block. Writes to
+# _output_correlations/.
 #
 # Usage:
 #   Rscript scripts/run_all_correlation_analyses.R [dataset]
@@ -52,6 +53,8 @@ response_data <- if (needs_response_data) {
   NULL
 }
 
+alternatives <- config$alternatives
+
 for (dataset in datasets_to_run) {
   metrics <- config$datasets[[dataset]]$metrics
   message("=== Dataset: ", dataset, " (", length(metrics), " metrics) ===")
@@ -60,6 +63,14 @@ for (dataset in datasets_to_run) {
   for (me in metrics) {
     run_correlation_metric(config, dataset, me,
                            data = dat, response_data = response_data)
+  }
+  if (dataset %in% alternatives$datasets) {
+    alt_config <- utils::modifyList(
+      config, list(predictor_conditions = alternatives$predictor_conditions))
+    for (me in alternatives$metrics) {
+      run_correlation_metric(alt_config, dataset, me, data = dat,
+                             output_root = CORRELATION_ALTERNATIVES_ROOT)
+    }
   }
 }
 

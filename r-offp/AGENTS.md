@@ -68,17 +68,6 @@ python plot_results_grid.py --raw config/plots/cx_homeostasis.yaml   # raw value
 python plot_results_cell.py config/plots/bandpower_homeostasis.yaml
 python plot_results_cell.py --response-var mean_zlog_delta config/plots/bandpower_homeostasis.yaml
 python plot_results_cell.py --raw config/plots/cx_homeostasis.yaml
-
-# Assembled draft of the replacement Supplementary Figure S2 (size-adjusted ON/OFF
-# transition synchrony): mechanism panels from the cnpix_local_sleep validation notebook's cached
-# tables, result panels drawn through plot_results' own violin functions so the draft
-# and the Figma panels cannot drift apart. Writes into
-# docs/ms/figures_draft/. Needs the adj_mean_*_mad analyses and one execution
-# of the validation notebook. Also emits each mechanism panel (b-e) as a standalone
-# SVG under S2_panels/, drawn by the same panel functions as the assembly; panel f's
-# violins come from plot_results_cell.py instead.
-python plot_s2_replacement.py                  # assembled draft + panels + comparison
-python plot_s2_replacement.py --no-comparison --no-panels
 ```
 
 ### Manuscript tables
@@ -88,24 +77,24 @@ paper. Config-driven (`config/summary_tables/manuscript_*.yaml`); reports ONLY A
 OFFs (`llas`) / Medium+Large (`clas`) / Small (`llas_exclusive`); never BLAS.
 Cells give <=2 sig-fig, adjusted two-sided p with stars, the contrast estimate with its
 95% CI, and the Cohen's-d analogue. Table types: `homeostasis` / `correlation_slope` /
-`correlation_robustness` / `depth_profile` / `per_event_meta` /
-`epoched_partial` / `locality` / `size_globality` / `model_reference`. Outputs ->
-`_output_manuscript/`.
+`correlation_robustness` / `correlation_alternatives` / `depth_profile` /
+`per_event_meta` / `per_event_multivariable` / `epoched_partial` / `locality` /
+`size_globality` / `model_reference` / `detector_agreement`. The `detector_agreement`
+tables (S6a-c) instead give each detector's agreement with the manual annotations, mean ±
+s.d. across structures, from `inst/extdata/manual_detector_agreement.csv` (cnpix_local_sleep
+`off-analysis export-detector-agreement`, which needs NFS). Outputs -> `_output_manuscript/`.
 
 ```bash
 python manuscript_tables.py config/summary_tables/manuscript_s1a_homeostasis.yaml   # one table
-python manuscript_tables.py --supplement config/summary_tables/manuscript_supplement.yaml  # combined S0-S5
-./make_manuscript_tables.sh                       # all tables (+ the S1b companion) from current outputs
+python manuscript_tables.py --supplement config/summary_tables/manuscript_supplement.yaml  # combined S0-S6
+./make_manuscript_tables.sh                       # all tables (+ the Table 1 workbook) from current outputs
 ./make_manuscript_tables.sh --rerun-diagnostics   # + refit S4a transforms & S4b leave-out battery (slow)
 ./make_manuscript_tables.sh --all                 # + re-run R analyses + refresh cnpix_local_sleep correlation CSVs
 
-# Table S1b, the companion DATA workbook for Table S1a: the actual per-(subject,
-# structure, condition) values behind the S1a contrasts (OFF count, OFF rate, Total
-# OFFness, duration, span, area, residual MUA, ON/OFF-transition synchrony, delta
-# power), one sheet per property, blocked by All/Medium+Large/Small. Reads the
-# summarized_full48h_*_offs parquets + the S1a config (so it tracks S1a). SEPARATE
-# file -> _output_manuscript/manuscript_s1b_values.{xlsx,csv}.
-python manuscript_s1b_values.py
+# The Table 1 workbook: manuscript Table 1, the OFF count per (subject, structure,
+# condition), blocked by All/Medium+Large/Small. Reads the summarized_full48h_*_offs
+# parquets. SEPARATE file -> _output_manuscript/manuscript_table1_values.{xlsx,csv}.
+python manuscript_table1_values.py
 ```
 
 ## Analysis Axes
@@ -313,3 +302,11 @@ variable in YAML), then full vs null compared by likelihood ratio test.
 - `renv` symlinks library packages to a shared cache. Tools like `pak` and
   `devtools::install()` may fail trying to overwrite these symlinks. Use
   `renv::install(".")` to install the local package.
+- `renv::install(".")` resolves the package's dependencies first, so when the
+  project is out of sync with `renv.lock` (`renv::status()`) it may try to
+  rebuild unrelated packages from source and abort before `offp` is installed
+  (2026-10-12: `arrow` 25.0.1 needs a C++20 compiler the host lacks). The
+  scripts keep running against the previously installed copy, whose bundled
+  `inst/extdata` is then stale. Fallback that touches only `offp`:
+  `R CMD INSTALL --no-multiarch --no-docs --library="$(Rscript -e 'source("renv/activate.R"); cat(.libPaths()[1])')" .`
+  and confirm with `diff -rq inst/extdata "$(Rscript -e 'source("renv/activate.R"); cat(system.file("extdata", package="offp"))')"`.

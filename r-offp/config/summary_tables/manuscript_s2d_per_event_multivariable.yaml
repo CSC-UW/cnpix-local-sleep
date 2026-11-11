@@ -1,0 +1,36 @@
+# Manuscript Supplementary Table S2d: unique contribution of each OFF property to
+# per-event delta power, all four properties jointly.
+#
+# Consumed by manuscript_tables.py (table_type: per_event_multivariable). Data produced by
+# cnpix_local_sleep `python -m cnpix_local_sleep.morphological.pipeline.export_manuscript_correlations`
+# (per-event branch, export_per_event_multivariable): All OFFs only, rank OLS per
+# subject-structure pair, semipartials pooled by DerSimonian-Laird on the coefficient scale.
+
+table_type: per_event_multivariable
+results_dir: inst
+data_csv: inst/extdata/manuscript_per_event_multivariable.csv
+output_dir: _output_manuscript
+
+title: "Supplementary Table S2d. Unique contribution of each OFF-period property to co-occurring delta power (All OFFs)."
+caption: >-
+  Within each unique subject-structure pair and state, the rank of the log delta power
+  at each OFF period's midpoint was regressed on the ranks of all four OFF-period
+  properties (ordinary least squares; ranks z-scored within pair). A property's
+  semipartial r is the correlation of delta with the part of that property not
+  predicted by the other three. Its square is the increment in R² that the property
+  contributes over the other three. Unique R² is the mean of these increments over
+  pairs, so it is not the square of the pooled coefficient. Shared = mean full-model R²
+  minus the four unique R²: variance in delta explained by the properties jointly but
+  by none of them alone. Semipartial coefficients were pooled across pairs by a
+  random-effects (DerSimonian-Laird) meta-analysis on the coefficient scale, each
+  weighted by the inverse of its regression variance plus the between-pair variance.
+  Pooled r is given with its analytic 95% CI, and p is the two-sided test of a
+  non-zero pooled coefficient. Multiple comparisons across the four properties are
+  Bonferroni-controlled (α = 0.05/4). Marginal r is the pooled Spearman r of the
+  property alone (Supplementary Table S2a, All OFFs). Pairs with pooled sign counts
+  the pairs whose own semipartial r has the sign of the pooled estimate. I² =
+  between-pair heterogeneity; k = unique subject-structure pairs pooled. Full-model R²
+  is the mean over pairs, with the interquartile range across pairs.
+section_title: ""
+
+sheet: "S2d Per-event multivariable"

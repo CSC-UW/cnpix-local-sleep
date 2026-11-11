@@ -17,12 +17,12 @@ Three CLIs / console scripts are installed: `off-analysis` (the `export-*` pipel
 
 ## Data
 
-`r-offp/inst/extdata/` carries the 24 summarized tables (1.31 MB) every manuscript
+`r-offp/inst/extdata/` carries the 28 summarized tables (1.5 MB) every manuscript
 table is built from.
 
 The three event-level OFF tables (`full48h_{llas,clas,blas}_offs.parquet`, 347 MB
 together) are not committed to this repo since they exceed GitHub's 100 MB per-file limit,
-and only the Supplementary Figure S2 / edge-adjusted path reads them.
+and no reported model reads them.
 They are published as Release assets and fetched on demand into a local cache.
 See [`docs/DATA.md`](docs/DATA.md).
 

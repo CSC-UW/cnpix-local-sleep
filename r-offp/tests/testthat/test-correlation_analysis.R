@@ -132,6 +132,31 @@ test_that("build_correlation_frame errors when response_metric absent from respo
   )
 })
 
+test_that("build_correlation_frame computes a log-ratio rebound", {
+  d <- data.frame(
+    subject = "a", probe = "imec0", structure = "X",
+    condition = c("NOD", "Early.REC.NREM", "Early.REC.NREM.Match"),
+    clade = "Cx", rate = c(5, 8, 2),
+    stringsAsFactors = FALSE
+  )
+  fr <- build_correlation_frame(d, "rate", rebound_scale = "log_ratio")
+  expect_equal(fr$y, log(8 / 2))
+})
+
+test_that("build_correlation_covariates takes baseline_ and predictor_ terms from data", {
+  d <- data.frame(
+    subject = rep(c("a", "b"), each = 3), probe = "imec0", structure = "X",
+    condition = rep(c("NOD", "Early.REC.NREM", "Early.REC.NREM.Match"), 2),
+    clade = "Cx", rate = c(5, 8, 3, 7, 10, 4),
+    stringsAsFactors = FALSE
+  )
+  cov <- build_correlation_covariates(c("baseline_rate", "predictor_rate"), d, "llas")
+  expect_equal(cov$baseline_rate[cov$subject == "a"], 3)
+  expect_equal(cov$predictor_rate[cov$subject == "b"], 7)
+  expect_error(build_correlation_covariates("not_a_covariate", d, "llas"),
+               "not_a_covariate")
+})
+
 # -------------------- fit + slope test (synthetic, both re_terms) --------------------
 
 make_fit_fixture <- function() {
@@ -176,6 +201,25 @@ test_that("crossed (1|subject)+(1|structure) fits and yields a finite f^2", {
   expect_true(is.finite(res$slope))
 })
 
+test_that("a covariate enters both models, so the LRT tests x alone", {
+  d <- make_fit_fixture()
+  d$c <- d$x + stats::rnorm(nrow(d), 0, 1)
+  models <- suppressWarnings(fit_correlation_models(d, "(1 | subject)", "c"))
+  expect_true("c" %in% names(lme4::fixef(models$null)))
+  expect_false("x" %in% names(lme4::fixef(models$null)))
+  res <- suppressWarnings(test_correlation_slope(models, d))
+  expect_equal(res$anova$Df[2], 1)
+})
+
+test_that("correlation_spearman reports rank correlations with x and y", {
+  d <- make_fit_fixture()
+  d$c <- d$x^3
+  sp <- correlation_spearman(d, "c")
+  expect_equal(sp$term, "c")
+  expect_equal(sp$rho_x, 1)
+  expect_equal(sp$rho_y, stats::cor(rank(d$c), rank(d$y)))
+})
+
 # end-to-end orchestrator (data-backed; skips without extdata)
 
 test_that("run_nod_rebound_correlation writes results.json for both models", {
@@ -207,4 +251,26 @@ test_that("run_nod_rebound_correlation writes results.json for both models", {
     expect_true(is.finite(js$slope))
     expect_equal(js$n_subjects, length(unique(res$data$subject)))
   }
+})
+
+test_that("run_nod_rebound_correlation adjusts for a covariate on its complete combos", {
+  skip_if_not(correlation_extdata_available(), "correlation LLAS extdata absent")
+  skip_if_not(nzchar(system.file("extdata", "manual_event_agreement.csv", package = "offp")),
+              "event agreement extdata absent")
+
+  out <- file.path(tempdir(), "corr_cov_test")
+  unlink(out, recursive = TRUE)
+  res <- suppressWarnings(run_nod_rebound_correlation(
+    metric = "rate", off_type = "llas",
+    model_def = list(name = "subject", re_terms = "(1 | subject)"),
+    output_dir = out, covariates = "event_precision", save_ggplot_rds = FALSE
+  ))
+  agreement <- load_event_agreement("llas")
+  expect_true(all(paste(res$data$subject, res$data$probe, res$data$structure) %in%
+                    paste(agreement$subject, agreement$probe, agreement$structure)))
+  expect_true("event_precision" %in% names(lme4::fixef(res$models$null)))
+  js <- jsonlite::fromJSON(file.path(out, "subject", "results.json"))
+  expect_equal(js$covariates, "event_precision")
+  expect_equal(js$spearman$term, "event_precision")
+  expect_equal(js$n, nrow(res$data))
 })

@@ -1,6 +1,6 @@
 # Package data.
 #
-# The 24 summarized tables in inst/extdata ARE committed (1.31 MB). They are the
+# The 27 summarized tables in inst/extdata ARE committed (1.5 MB). They are the
 # inputs every manuscript table is built from, and the build has to work offline
 # from a bare clone. Only the three event-level OFF tables are too large to
 # commit (347 MB together; one exceeds GitHub's 100 MB per-file limit) -- those

@@ -1,6 +1,6 @@
 ---
 title: Size-adjusted ON/OFF transition synchrony companion pipeline
-updated: 2026-08-19
+updated: 2026-11-07
 ---
 
 # Size-adjusted ON/OFF transition synchrony
@@ -78,36 +78,6 @@ python manuscript_tables.py config/summary_tables/manuscript_s1a_homeostasis.yam
 
 Results land in `_output/clas/<condition_set>/adj_mean_*_mad/crossed_interaction/`,
 alongside every other response variable.
-
-## The assembled figure draft
-
-```bash
-python plot_s2_replacement.py     # -> docs/ms/figures_draft/S2_replacement_draft.{png,pdf}
-                                  #    + S2_panels/S2_panel_{b,c,d,e}.svg
-                                  #    + S2_published_vs_adjusted.png (review only)
-```
-
-Six panels: the MAD floor, the mechanical apportionment, the shared size-adjustment curve
-with each pair's own profile behind it, the duration control (the covariate deliberately
-*not* adjusted for), and the four result violins. The mechanism panels read the validation
-notebook's cached simulation tables (execute it once first); the result panels are drawn
-through `plot_results.plot_{nrem,wake}_violin`, the same functions that emit the
-standalone Figma SVGs, so the draft cannot drift away from the panels that ship.
-
-### Per-panel SVGs for Figma
-
-`build_panel()` re-draws one mechanism panel on its own canvas through the *same* panel
-function the assembly calls, so a panel imported alone cannot drift from the same panel
-in the draft. Panel a is a placeholder for the reused protocol schematic and is not
-emitted; panel f's four violins come from `plot_results_cell.py`, sized to grid cells:
-
-```
-_output/figures/clas/{nrem,wake}/adj_mean_{onset,offset}_mad/crossed_interaction/{nrem,wake}_adjusted_violin.svg
-```
-
-Panels are saved with `bbox_inches="tight"`, so panel d's canvas is wider than panel c's:
-its title is longer than a half-width axes. Delete the titles in Figma if the columns
-need to line up.
 
 ## Gotchas
 

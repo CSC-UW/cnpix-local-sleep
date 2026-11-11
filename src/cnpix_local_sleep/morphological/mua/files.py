@@ -4,8 +4,6 @@ All paths use ``cnpix_local_sleep.files.get_path()`` with
 ``method="morphological"``, producing paths like::
 
     {project}/{experiment}/{subject}/method=morphological/probe={probe}/...
-
-Modeled on harding/files.py.
 """
 
 from __future__ import annotations
@@ -16,7 +14,6 @@ from cnpix_local_sleep import const, files
 
 
 METHOD = "morphological"
-_METHOD = METHOD  # back-compat alias for existing internal references
 
 
 def get_path(
@@ -36,7 +33,7 @@ def get_path(
     outputs under a ``method=morphological`` directory. ``method``
     must not be passed by the caller; the wrapper injects it.
     """
-    merged_pathspec = {"method": _METHOD}
+    merged_pathspec = {"method": METHOD}
 
     if pathspec is not None:
         for key, value in pathspec.items():
@@ -79,72 +76,6 @@ def get_restricted_structure_borders_path(
     to :func:`cnpix_local_sleep.files.get_off_detection_structure_borders_path`.
     """
     return files.get_off_detection_structure_borders_path(subject, probe)
-
-
-# -------------------- Border files (cnpix_local_sleep project) --------------------
-
-
-# -------------------- Channel masks --------------------
-
-
-# Detection outputs (per-condition spatial detection)
-
-
-def get_channel_thresholds_path(
-    subject: str,
-    probe: str,
-    structure: str,
-    condition: str,
-    threshold_group: str | None,
-) -> pathlib.Path:
-    """Get path for channel thresholds file."""
-    return get_path(
-        "channel_thresholds.zarr",
-        subject=subject,
-        probe=probe,
-        structure=structure,
-        detection_mode="spatial",
-        threshold_group=threshold_group,
-        condition=condition,
-    )
-
-
-def get_off_label_indices_path(
-    subject: str,
-    probe: str,
-    structure: str,
-    condition: str,
-    threshold_group: str | None,
-) -> pathlib.Path:
-    """Get path for OFF label indices file."""
-    return get_path(
-        "off_label_indices.parquet",
-        subject=subject,
-        probe=probe,
-        structure=structure,
-        detection_mode="spatial",
-        threshold_group=threshold_group,
-        condition=condition,
-    )
-
-
-def get_offs_path(
-    subject: str,
-    probe: str,
-    structure: str,
-    condition: str,
-    threshold_group: str | None,
-) -> pathlib.Path:
-    """Get path for OFF periods dataframe."""
-    return get_path(
-        "offs.parquet",
-        subject=subject,
-        probe=probe,
-        structure=structure,
-        detection_mode="spatial",
-        threshold_group=threshold_group,
-        condition=condition,
-    )
 
 
 # -------------------- Full-recording detection outputs --------------------

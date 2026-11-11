@@ -16,12 +16,19 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# library(offp) reads the INSTALLED copy of inst/extdata; refuse to fit against a stale one.
+INSTALLED_EXTDATA="$(Rscript -e 'suppressMessages(source("renv/activate.R")); cat(system.file("extdata", package = "offp"))' 2>/dev/null | tail -n 1)"
+if [[ -z "$INSTALLED_EXTDATA" ]] || ! diff -rq inst/extdata "$INSTALLED_EXTDATA" >/dev/null; then
+  echo "installed offp extdata ($INSTALLED_EXTDATA) differs from inst/extdata; reinstall offp first (see AGENTS.md Known Issues)" >&2
+  exit 3
+fi
+
 DO_EXPORTS=0; DO_R=0; DO_NFS=0; DO_DIAG=0
 for a in "$@"; do
   case "$a" in
     --exports) DO_EXPORTS=1 ;;
     --rerun-R) DO_R=1 ;;
-    --nfs-exports) DO_NFS=1 ;;   # size/globality Spearman (Fig 4d-f); needs NFS, slow
+    --nfs-exports) DO_NFS=1 ;;   # size/globality Spearman (Fig 4d-f) + S6a-c agreement; needs NFS, slow
     --rerun-diagnostics) DO_DIAG=1 ;;  # S4a transforms + S4b leave-out battery; ~thousands of lmer refits
     --all) DO_EXPORTS=1; DO_R=1; DO_NFS=1; DO_DIAG=1 ;;
     *) echo "unknown flag: $a" >&2; exit 2 ;;
@@ -31,6 +38,8 @@ done
 if [[ "$DO_NFS" == 1 ]]; then
   echo ">> Refreshing size/globality Spearman (Fig 4d-f); requires NFS ..."
   off-analysis export-size-globality-correlations
+  echo ">> Refreshing detector agreement with the manual annotations (S6a-c); requires NFS ..."
+  off-analysis export-detector-agreement
 fi
 
 if [[ "$DO_R" == 1 ]]; then
@@ -61,13 +70,16 @@ fi
 echo ">> Building manuscript tables (combined supplement + per-table files) ..."
 CFG=config/summary_tables
 python manuscript_tables.py --supplement "$CFG/manuscript_supplement.yaml"
-for t in s0_models s1a_homeostasis s2a_per_event s2b_epoched s3a_locality s3b_size_globality \
-         s4a_sd_rebound s4b_robustness s5_depth; do
+for t in s0_models s1a_homeostasis s2a_per_event s2b_epoched s2c_per_event_by_band \
+         s2d_per_event_multivariable \
+         s3a_locality s3b_size_globality s4a_sd_rebound s4b_robustness \
+         s4c_sd_rebound_covariates s5_depth \
+         s6a_detector_agreement s6b_detector_agreement_by_state s6c_two_wake_annotations; do
   python manuscript_tables.py "$CFG/manuscript_${t}.yaml" >/dev/null
 done
 
-echo ">> Building S1b companion data workbook (per-combo values underlying S1a) ..."
-python manuscript_s1b_values.py >/dev/null
+echo ">> Building the Table 1 workbook (OFF counts per subject, structure and condition) ..."
+python manuscript_table1_values.py >/dev/null
 
 echo ">> Done. Outputs in _output_manuscript/ :"
-ls -1 _output_manuscript/manuscript_supplement.* _output_manuscript/manuscript_s1b_values.* 2>/dev/null || true
+ls -1 _output_manuscript/manuscript_supplement.* _output_manuscript/manuscript_table1_values.* 2>/dev/null || true

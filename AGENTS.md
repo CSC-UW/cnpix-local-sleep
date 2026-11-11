@@ -4,8 +4,8 @@
 
 The manuscript repository for *Local sleep during wake: A Neuropixels view*: OFF-period
 detection, the export pipelines that build the summary tables, the evaluation kernels
-behind Table 1, the figure notebooks, and the `offp` R package that fits every reported
-model.
+behind Supplementary Tables S6a-c, the figure notebooks, and the `offp` R package that
+fits every reported model.
 
 Two packages live here. The Python package is `src/cnpix_local_sleep/`. The `offp` R
 package is nested at `r-offp/` and keeps its own `.gitignore`, `DESCRIPTION` and renv
@@ -18,6 +18,21 @@ Scope rule. Anything needed to reproduce a published number belongs here. Everyt
 else (exploratory analysis, the two interactive OFF tuners, the Harding GMM code,
 cell-type firing, OFF-locked PETHs, links to thalamic activity) belong in another repo `offproj`, which depends on this package.
 The dependency runs dev -> manuscript and must never be inverted.
+
+## Branches
+
+`main` carries only published versions: one commit per release, tagged. All work
+happens on `dev`, which is what `offproj`, `OffViewer` and the `gfys_workspace`
+checkout track. At a release, `dev` is squashed onto `main` and then reset to it:
+
+```bash
+git checkout main && git merge --squash dev && git commit && git tag <release-tag>
+git push origin main --tags
+git branch -f dev main && git push --force-with-lease origin dev
+```
+
+`main` is never force-pushed. `dev` history is disposable and is replaced at every
+release, so do not pin `dev` commit shas anywhere durable.
 
 ## Build & Test
 
@@ -38,11 +53,11 @@ Other users who clone this repository are not expected (and do not need) to have
 
 | Script | Covers |
 | --- | --- |
-| `off-analysis` | Post-detection pipeline steps: postprocess, aggregate, plot, bandpower, the `export-*` subcommands, and `publish-release-data`. Not a detection method. |
-| `morphological-offs` | `detect-offs` / `detect-offs-full` |
+| `off-analysis` | Post-detection pipeline steps: bandpower, `cross-structure-offs`, the `export-*` subcommands, and `publish-release-data`. Not a detection method. |
+| `morphological-offs` | `detect-offs-full` |
 | `unit-based-offs` | `detect` / `detect-experiment` / `detect-banded` / `detect-banded-experiment` |
 
-The dev-only commands (`offproj-dev`, `harding-offs`) live in `offproj`.
+The dev-only commands (`offproj-dev`) live in `offproj`.
 
 ## Layout
 
@@ -64,17 +79,17 @@ Notebooks are committed without outputs.
 | `files.py` | `get_path()`: parametric path construction with `DEFAULT_PATH_SCHEMA`; `get_r_offp_extdata_dir()` |
 | `channel_anatomy.py` | Which structure and layer each probe channel sits in (htsv tables, not the atlas) |
 | `trace_io.py` | Open / scale / smooth the zarr recordings, including the annotation-grid reader |
-| `off_tables.py` | The `Off` row schema, the per-condition OFF loader, and the LLAS/CLAS/BLAS filters (single point of truth) |
+| `off_tables.py` | The `Off` row schema and the LLAS/CLAS/BLAS filters (single point of truth) |
 | `hyp.py` | Hypnogram utilities |
 | `plots.py` | Plotting utilities, including the condition and LLAS/CLAS/BLAS palettes |
 | `units.py` | Unit/spike train utilities |
-| `atlas.py` | Brain atlas integration |
+| `atlas.py` | A/P coordinates and grouping of atlas structures; the atlas and `get_clade` are in `cnpix.units.regions` |
 | `sps_conf.py` | Subject-probe-structure config (cross-method; bundled CSV in `data/`) |
 | `release_data.py` | The GitHub Release hosting the event-level OFF tables: fetch, cache, publish |
-| `morphological/` | The morphological method: `common.py` (`MorphologicalSourceConfig`), `morphology.py` (the detection kernel), `detect.py`, `detect_full.py`, `manual_validation.py`, `full48h_eval.py`, shared CLI/types, `mua/` subpackage |
-| `morphological/pipeline/` | Postprocess, aggregate, and the `export-*` implementations |
+| `morphological/` | The morphological method: `common.py` (`MorphologicalSourceConfig`), `morphology.py` (the detection kernel), `detect.py`, `detect_full.py`, `manual_validation.py`, `full48h_eval.py`, `spike_validation.py` (sorted spikes inside OFFs), shared CLI/types, `mua/` subpackage |
+| `morphological/pipeline/` | Postprocessing kernels, full-48h aggregation, and the `export-*` implementations |
 | `unit_based/` | The spatially tiled unit-based method: `banded.py`, `banded_eval.py`, `banded_plots.py` |
-| `evaluation/` | Manual OFF labels, grid geometry, rasterizer and metric kernels, plus the cross-method drivers behind Table 1: `head_to_head.py`, `banded_vs_morphological.py` |
+| `evaluation/` | Manual OFF labels, evaluation configs (`config.py`), grid geometry (stack times and depths, labels read back as time/depth events with `grid.label_events`), rasterizer and metric kernels, plus the cross-method drivers behind Supplementary Tables S6a-c: `head_to_head.py`, `banded_vs_morphological.py`, `annotator_overlap.py` |
 | `stacks/` | OFF period stacking and the napari annotation grid |
 
 ## Detection Methods
@@ -143,14 +158,13 @@ resolved once, by `files.get_r_offp_extdata_dir()`; do not re-derive it.
 ## Data
 
 `r-offp/inst/extdata/` is split by whether the table build needs the file *offline*.
-The 24 summarized tables are committed (1.31 MB); the three event-level OFF tables
+The 28 summarized tables are committed (1.5 MB); the three event-level OFF tables
 (`full48h_{llas,clas,blas}_offs.parquet`, 347 MB together) are GitHub Release assets,
-because one exceeds GitHub's 100 MB per-file limit and only Supplementary Figure S2 /
-the edge-adjusted path reads them. `cnpix_local_sleep.release_data` holds the repo/tag
-config, the cache-backed fetcher (a copy in `inst/extdata` always wins) and the
-`off-analysis publish-release-data` implementation. No R code reads the event-level
-tables, so `offp` needs no download client. Details, including the tag policy:
-[`docs/DATA.md`](docs/DATA.md).
+because one exceeds GitHub's 100 MB per-file limit and no reported model reads them.
+`cnpix_local_sleep.release_data` holds the repo/tag config, the cache-backed fetcher
+(a copy in `inst/extdata` always wins) and the `off-analysis publish-release-data`
+implementation. No R code reads the event-level tables, so `offp` needs no download
+client. Details, including the tag policy: [`docs/DATA.md`](docs/DATA.md).
 
 ## See Also
 

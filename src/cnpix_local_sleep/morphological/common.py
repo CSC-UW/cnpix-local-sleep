@@ -4,11 +4,9 @@ Holds the ``MorphologicalSourceConfig`` dataclass used to plumb file-path,
 trace-reader, and quantile-threshold behaviour through the shared detection
 code.
 
-Only one variant survives (``morphological``); the legacy ``tom-bugnon`` variant
-was removed in the manuscript-relevance prune. The indirection is retained
+Only one variant exists (``morphological``). The indirection is retained
 because it is what keeps detection code from hard-coding its own on-disk
-``method=`` segment, and because ``cnpix_local_sleep.harding`` and the unit-based
-detectors follow the same shape.
+``method=`` segment, and because the unit-based detectors follow the same shape.
 """
 
 from __future__ import annotations
@@ -25,13 +23,6 @@ import xarray as xr
 
 MorphologicalVariant = Literal["morphological"]
 
-# Sibling of ``quantile_thresholds.csv`` holding the thresholds used by the
-# per-condition detection path. Kept separate because the main file's thresholds
-# were re-optimized for full-recording (48h) detection (commit 7138c32,
-# 2026-05-18) and should not be assumed strictly better for per-condition
-# detection.
-PER_CONDITION_THRESHOLDS_FILENAME = "quantile_thresholds_per_condition.csv"
-
 
 @dataclass(frozen=True)
 class MorphologicalSourceConfig:
@@ -44,7 +35,7 @@ class MorphologicalSourceConfig:
         that ``files_module`` emits on disk.
     files_module
         Module exposing ``get_path`` and the path helpers
-        (``get_offs_path``, ``get_channel_thresholds_path``, ...).
+        (``get_full_offs_path``, ``get_full_channel_thresholds_path``, ...).
         Detection code reads and writes through this module rather than
         constructing paths itself.
     open_traces_as_xarray
@@ -76,18 +67,6 @@ class MorphologicalSourceConfig:
         """
         with resources.path(
             f"{self.thresholds_package}.data", "quantile_thresholds.csv"
-        ) as f:
-            return pd.read_csv(f)
-
-    def load_per_condition_quantile_thresholds(self) -> pd.DataFrame:
-        """Return the per-condition detection threshold table.
-
-        Same schema as :meth:`load_quantile_thresholds`. Reads
-        ``quantile_thresholds_per_condition.csv`` (frozen
-        pre-48h-optimization thresholds).
-        """
-        with resources.path(
-            f"{self.thresholds_package}.data", PER_CONDITION_THRESHOLDS_FILENAME
         ) as f:
             return pd.read_csv(f)
 
@@ -169,12 +148,7 @@ class MorphologicalSourceConfig:
         structure: str,
         condition: str,
     ) -> float:
-        """Return the (48h-optimized) quantile threshold for one row+condition.
-
-        Reads the main ``quantile_thresholds.csv``. Used by full-recording
-        detection. For the per-condition detection path use
-        :meth:`get_per_condition_quantile_threshold`.
-        """
+        """Return the quantile threshold for one row+condition from ``quantile_thresholds.csv``."""
         return self._lookup_quantile_threshold(
             self.load_quantile_thresholds(),
             subject,
@@ -182,26 +156,4 @@ class MorphologicalSourceConfig:
             structure,
             condition,
             "quantile_thresholds.csv",
-        )
-
-    def get_per_condition_quantile_threshold(
-        self,
-        subject: str,
-        probe: str,
-        structure: str,
-        condition: str,
-    ) -> float:
-        """Return the per-condition-detection quantile threshold for one row+condition.
-
-        Reads ``quantile_thresholds_per_condition.csv`` (falling back to the main
-        table for variants without it). Used by the per-condition detection path
-        so it is insulated from the 48h-optimized thresholds.
-        """
-        return self._lookup_quantile_threshold(
-            self.load_per_condition_quantile_thresholds(),
-            subject,
-            probe,
-            structure,
-            condition,
-            PER_CONDITION_THRESHOLDS_FILENAME,
         )

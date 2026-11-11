@@ -85,8 +85,10 @@ Additive: deleting the locality files (`R/locality_data_loading.R`,
 - Plots: `python plot_locality_results.py config/plots/locality.yaml` (reuses
   `plot_results.py`'s machinery unchanged; SVGs -> `_output_locality/figures/`).
   Two plot types from one config: (1) request 1: top-level `entries` draw the
-  `mean_overlap_degree` NREM + wake violin panels (between-condition bars); (2)
-  request 2: the `local_vs_overlapping` section draws the notebook `4b` figure:
+  `mean_overlap_degree` NREM + wake violin panels (between-condition bars), plus
+  the same two panels on one shared y axis (`shared_y`, raw and `_adjusted`;
+  adjusted values are back-transformed from the model's response transform);
+  (2) request 2: the `local_vs_overlapping` section draws the notebook `4b` figure:
   per condition, dodged Local/Overlapping violins with a within-condition bracket
   whose p-value is the pooled interaction model's `interaction$simple` (point at
   the chosen model, e.g. `locality_interaction_weighted_log`). Conditions for (2)

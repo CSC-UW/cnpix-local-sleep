@@ -4,20 +4,23 @@
 \alias{fit_correlation_models}
 \title{Fit full and null mixed models for the correlation}
 \usage{
-fit_correlation_models(d, re_terms)
+fit_correlation_models(d, re_terms, covariates = character())
 }
 \arguments{
-\item{d}{Data frame with \code{x}, \code{y}, and the grouping columns named in
-\code{re_terms}.}
+\item{d}{Data frame with \code{x}, \code{y}, the covariate columns, and the grouping
+columns named in \code{re_terms}.}
 
 \item{re_terms}{Character vector of random-effect terms.}
+
+\item{covariates}{Character vector of fixed-effect covariate columns kept in
+both models (default none).}
 }
 \value{
 Named list with \code{full} and \code{null} \code{lmerMod} objects.
 }
 \description{
-Full: \verb{y ~ x + <re_terms>}. Null: \verb{y ~ 1 + <re_terms>}. A likelihood ratio
-test of full vs null is the test of the slope of \code{x}. Generalizes f25a's
-\code{fit_basic_models} to an arbitrary set of crossed random-intercept terms (e.g.
-\code{c("(1|subject)")} or \code{c("(1|subject)","(1|structure)")}).
+Full: \verb{y ~ x + <covariates> + <re_terms>}. Null: \verb{y ~ 1 + <covariates> + <re_terms>}. A likelihood ratio test of full vs null is the test of the slope
+of \code{x} given the covariates. Generalizes f25a's \code{fit_basic_models} to an
+arbitrary set of crossed random-intercept terms (e.g. \code{c("(1|subject)")} or
+\code{c("(1|subject)","(1|structure)")}).
 }

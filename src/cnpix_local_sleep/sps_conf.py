@@ -43,7 +43,7 @@ def register_method_inclusion(method: str, package: str, filename: str) -> None:
     Detection methods that are not part of the manuscript live in the development
     repository, so their inclusion tables cannot be listed above without inverting
     the dev -> manuscript dependency. Those packages call this at import time
-    instead; ``offproj.harding`` registers ``"harding"`` this way.
+    instead.
     """
     METHOD_INCLUSION_REGISTRY[method] = (package, filename)
 

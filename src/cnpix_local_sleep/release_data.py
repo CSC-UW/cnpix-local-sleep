@@ -3,16 +3,16 @@
 ``r-offp/inst/extdata`` is split in two, and the line is *whether the manuscript's
 tables need the file offline* rather than file size (the two happen to coincide):
 
-* The 24 summarized tables are committed (1.31 MB). Every reported model reads
+* The 27 summarized tables are committed (1.5 MB). Every reported model reads
   only those, so ``renv::install('.')`` plus ``make_manuscript_tables.sh`` rebuilds
   the supplement from a bare clone with no network and no credentials.
 * The three event-level tables (``full48h_{llas,clas,blas}_offs.parquet``, 347 MB
   together) are Release assets. One of them exceeds GitHub's 100 MB per-file
-  limit, and only the Supplementary Figure S2 / edge-adjusted path reads them.
+  limit, and no reported model reads them.
 
 The Release carries *both* halves, so one asset set is a complete, self-contained
 copy of the data for archiving or a later move to Zenodo. Only the three are ever
-fetched, because the other 24 are already in the checkout.
+fetched, because the other 27 are already in the checkout.
 
 Nothing here runs on a machine that has run the exporters:
 :func:`get_event_table_path` prefers a file already sitting in ``inst/extdata`` and
@@ -230,7 +230,7 @@ def publish(
     """Upload ``inst/extdata`` to the Release, creating it if it does not exist.
 
     Uploads every file in ``extdata_dir`` by default, not just the three that have to
-    be hosted: the committed 24 are cheap and their presence makes one asset set a
+    be hosted: the committed 27 are cheap and their presence makes one asset set a
     complete copy of the data. ``--clobber`` replaces assets in place, which is what
     invalidates :func:`get_event_table_path`'s cache.
 

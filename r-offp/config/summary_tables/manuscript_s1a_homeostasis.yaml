@@ -1,12 +1,12 @@
-# Manuscript Supplementary Table S1a: homeostasis of OFF-period properties.
+# Manuscript Supplementary Table S1: homeostasis of OFF-period properties.
 #
 # Consumed by manuscript_tables.py. Reports ONLY the three OFF partitions in the
 # manuscript: All OFFs = llas (relaxed), Medium + Large = clas (stringent),
 # Small = llas_exclusive (relaxed but not stringent). No BLAS.
 #
-# SCOPE (from Results / Fig 2g, Fig 2f, Supplementary Fig 2): rate, duration,
+# SCOPE (from Results / Fig 2g, Fig 2f, Supplementary Fig 5): rate, duration,
 # span, per-OFF area, total OFFness, residual MUA, delta power (Fig 2f), and
-# size-adjusted within-structure ON-OFF transition asynchrony (Supplementary Fig 2).
+# size-adjusted within-structure ON-OFF transition asynchrony (Supplementary Fig 5c).
 # Onset/offset slope, onset/offset jitter, the MAD-trace, and eta power are out of
 # scope, as are the UNADJUSTED mean_{onset,offset}_mad fits: the size-adjusted
 # versions supersede them (see the report referenced under property_units), so
@@ -20,9 +20,9 @@
 results_dir: _output
 config: config/cx_homeostasis.yaml
 output_dir: _output_manuscript
-sheet: "S1a Homeostasis"
+sheet: "S1 Homeostasis"
 
-title: "Supplementary Table S1a. Homeostatic regulation of OFF-period properties and cortical delta power across the six experimental conditions."
+title: "Supplementary Table S1. Homeostatic regulation of OFF-period properties and cortical delta power across the six experimental conditions."
 caption: >-
   Linear mixed-effects models across the six one-hour conditions (n = 29 unique
   subject-structure pairs from 12 structures and 15 rats), fit separately for All
@@ -85,7 +85,7 @@ property_units:
   mean_zlog_delta: "z-log"
 
 sections:
-- title: "OFF-period properties (Fig. 2g)"
+- title: "OFF-period properties (Fig. 2g,h; Supplementary Fig. 5b)"
   entries:
   # --- OFF duration (median-of-medians; Small uses mean-of-median) --------
   - [median_median_duration, llas, six, crossed_interaction_weighted]
@@ -129,7 +129,7 @@ sections:
   entries:
   - [mean_zlog_delta, bandpower, six, crossed_interaction]
 
-- title: "Within-structure ON-OFF transition asynchrony (Supplementary Fig. 2)"
+- title: "Within-structure ON-OFF transition asynchrony (Supplementary Fig. 5c)"
   entries:
   # Medium+Large only: in the Small class 32% of events are hard-floored at
   # MAD == 0, and All OFFs is a condition-varying mixture of the two.

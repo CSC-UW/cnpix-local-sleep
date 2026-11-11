@@ -16,8 +16,8 @@ output_dir: _output_manuscript
 title: "Supplementary Table S2a. Per-event correlation between OFF-period properties and co-occurring delta power."
 caption: >-
   Within each unique subject-structure pair, the Spearman rank correlation between
-  each OFF-period property and its co-occurring delta value (area with total log
-  delta; duration, span and residual MUA with peak log delta), pooled across pairs by
+  each OFF-period property and the log delta power at the OFF-period midpoint,
+  pooled across pairs by
   a random-effects (DerSimonian-Laird) meta-analysis on Fisher z-transformed
   coefficients. Pooled r is given with its analytic 95% CI; p is the two-sided test
   of a non-zero pooled correlation; multiple comparisons across the four properties

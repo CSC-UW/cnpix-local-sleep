@@ -16,14 +16,14 @@ quick markdown/CSV summaries used for internal review:
   older ``summarize_results.py`` already produced, for quick diffs.
 
 Each "S-table" is described by a YAML config under ``config/summary_tables/``.
-The homeostasis table (S1a) reuses the same ``entries`` list schema as
+The homeostasis table (S1) reuses the same ``entries`` list schema as
 ``summary.yaml`` (``[response_variable, dataset, condition_set, model]``) plus a
 ``partition_labels`` map. See ``config/summary_tables/manuscript_s1a_homeostasis.yaml``.
 
 Usage:
     python manuscript_tables.py config/summary_tables/manuscript_s1a_homeostasis.yaml
     python manuscript_tables.py config/summary_tables/manuscript_s1a_homeostasis.yaml \
-        --docx out/S1a.docx --xlsx out/S1a.xlsx
+        --docx out/S1.docx --xlsx out/S1.xlsx
 """
 
 from __future__ import annotations
@@ -489,6 +489,52 @@ def build_correlation_robustness(summary_config: dict, base_dir: Path):
     return headers, list(sections.values())
 
 
+def build_correlation_alternatives(summary_config: dict, base_dir: Path):
+    """S4c: covariate-adjusted and alternative-response versions of the S4a headline
+    fit. Each ``fits`` entry names its ``results.json`` directory under
+    ``results_dir``, with a ``{dataset}`` placeholder; blocks are the ``datasets``,
+    rows the fits. The Spearman cells come from the fit's single ``spearman`` row,
+    and a fit's ``spearman: [x]`` keeps only the correlation with x."""
+    results_dir = base_dir / summary_config.get("results_dir", "_output_correlations")
+    partition_labels = {**DEFAULT_PARTITIONS, **(summary_config.get("partition_labels") or {})}
+    headers = ["OFF detection", "Model", "n", "Slope [95% CI]", "Units", "p",
+               "Spearman ρ with x", "Spearman ρ with y"]
+    out = []
+    for section in summary_config["sections"]:
+        blocks = []
+        for dataset in summary_config["datasets"]:
+            rows = []
+            for fit in section["fits"]:
+                path = results_dir / fit["path"].format(dataset=dataset) / "results.json"
+                if not path.exists():
+                    raise FileNotFoundError(f"Correlation results not found: {path}")
+                with open(path) as f:
+                    res = json.load(f)
+                spearman = res.get("spearman") or []
+                if len(spearman) > 1:
+                    raise ValueError(f"More than one Spearman term in {path}")
+                pval = res["pval"]
+                cells = [
+                    Cell(fit["label"]),
+                    Cell(str(res["n"])),
+                    Cell(f"{_sig2(res['slope'])} {_ci_str(res['ci_lower'], res['ci_upper'])}",
+                         pval < 0.05),
+                    Cell(fit.get("units", "")),
+                    Cell(fmt_p_starred(pval), pval < 0.05),
+                ]
+                for axis in ("x", "y"):
+                    if spearman and axis in fit.get("spearman", ("x", "y")):
+                        rho, p = spearman[0][f"rho_{axis}"], spearman[0][f"p_{axis}"]
+                        cells.append(Cell(f"{_sig2(rho)} ({fmt_p_starred(p)})", p < 0.05))
+                    else:
+                        cells.append(Cell("—"))
+                rows.append({"cells": cells})
+            blocks.append({"label": partition_labels.get(dataset, dataset.upper()),
+                           "rows": rows})
+        out.append({"title": section.get("title", ""), "blocks": blocks})
+    return headers, out
+
+
 def build_depth_profile(summary_config: dict, base_dir: Path):
     """S5: depth profile of OFF involvement: intercept-only LME group means with
     95% CIs (lmer + subject-cluster bootstrap) from
@@ -540,13 +586,19 @@ def _fnum(row, key):
 
 
 def build_per_event_meta(summary_config: dict, base_dir: Path):
-    """S2a: per-event OFF-property vs co-occurring delta: pooled Spearman r
-    (DerSimonian-Laird meta) + 95% CI, from the cnpix_local_sleep export CSV."""
+    """S2a/S2c: per-event OFF-property vs co-occurring band power: pooled Spearman r
+    (DerSimonian-Laird meta) + 95% CI, from the cnpix_local_sleep export CSV.
+    With ``band_labels`` ({band: label}, S2c), only those bands are kept and a Band
+    column is added."""
     rows = _read_csv_rows(base_dir / summary_config["data_csv"])
+    band_labels = summary_config.get("band_labels")
+    band_order = {b: i for i, b in enumerate(band_labels or {})}
+    if band_labels:
+        rows = [r for r in rows if r["band"] in band_order]
     part_order = {"All OFFs": 0, "Medium + Large": 1, "Small OFFs": 2}
     cond_order = {"NREM": 0, "Wake": 1}
-    headers = ["OFF property", "Detection", "State", "Pooled Spearman r [95% CI]",
-               "p", "I² (%)", "k (subj-struct pairs)"]
+    headers = ["OFF property", "Detection", "State", *(["Band"] if band_labels else []),
+               "Pooled Spearman r [95% CI]", "p", "I² (%)", "k (subj-struct pairs)"]
     blocks: "OrderedDict[str, dict]" = OrderedDict()
     for r in rows:
         prop = r["property"]
@@ -559,18 +611,59 @@ def build_per_event_meta(summary_config: dict, base_dir: Path):
         cells = [
             Cell(r["partition"]),
             Cell(r["condition"]),
+            *([Cell(band_labels[r["band"]])] if band_labels else []),
             Cell(f'{_sig2(_fnum(r, "pooled_rho"))} {_ci_str(_fnum(r, "ci_lo"), _fnum(r, "ci_hi"))}',
                  p is not None and p < 0.05),
             Cell(pcell, p is not None and p < 0.05),
             Cell(f"{i2:.0f}" if i2 is not None else ""),
             Cell(str(r.get("k", ""))),
         ]
-        sort = (part_order.get(r["partition"], 9), cond_order.get(r["condition"], 9))
+        sort = (part_order.get(r["partition"], 9), cond_order.get(r["condition"], 9),
+                band_order.get(r.get("band"), 0))
         block["rows"].append({"cells": cells, "sort": sort})
     for b in blocks.values():
         b["rows"].sort(key=lambda x: x["sort"])
         for x in b["rows"]:
             del x["sort"]
+    return headers, [{"title": summary_config.get("section_title", ""), "blocks": list(blocks.values())}]
+
+
+def build_per_event_multivariable(summary_config: dict, base_dir: Path):
+    """S2d: all four OFF properties jointly predicting per-event delta: pooled
+    semipartial r + 95% CI per property, with the unique, shared and full-model R2."""
+    rows = _read_csv_rows(base_dir / summary_config["data_csv"])
+    cond_order = {"NREM": 0, "Wake": 1}
+    headers = ["State", "OFF property", "Marginal Spearman r (S2a)", "Semipartial r [95% CI]",
+               "p", "Unique R²", "Pairs with pooled sign", "I² (%)", "k (subj-struct pairs)"]
+    blocks: "OrderedDict[str, dict]" = OrderedDict()
+    for r in sorted(rows, key=lambda x: cond_order.get(x["condition"], 9)):
+        block = blocks.setdefault(r["condition"], {"label": r["condition"], "rows": []})
+        r2 = _fnum(r, "r2")
+        if r["term"] == "Full model":
+            r2_cell = f'{_sig2(r2)} (IQR {_sig2(_fnum(r, "r2_q25"))}–{_sig2(_fnum(r, "r2_q75"))})'
+        else:
+            r2_cell = _sig2(r2)
+        p = _fnum(r, "p_value")
+        if p is None:
+            block["rows"].append({"cells": [Cell(r["term"]), Cell(""), Cell(""), Cell(""),
+                                            Cell(r2_cell), Cell(""), Cell(""),
+                                            Cell(str(r.get("k", "")))]})
+            continue
+        sig = p < 0.05
+        pcell = fmt_p_starred(p)
+        if r.get("sig_bonferroni", "").strip().lower() in ("false", "0", "no"):
+            pcell += " (n.s. Bonf.)"
+        i2 = _fnum(r, "i_squared")
+        block["rows"].append({"cells": [
+            Cell(r["term"]),
+            Cell(_sig2(_fnum(r, "marginal_rho"))),
+            Cell(f'{_sig2(_fnum(r, "semipartial_r"))} {_ci_str(_fnum(r, "ci_lo"), _fnum(r, "ci_hi"))}', sig),
+            Cell(pcell, sig),
+            Cell(r2_cell),
+            Cell(f'{r["n_same_sign"]}/{r["k"]}'),
+            Cell(f"{i2:.0f}" if i2 is not None else ""),
+            Cell(str(r.get("k", ""))),
+        ]})
     return headers, [{"title": summary_config.get("section_title", ""), "blocks": list(blocks.values())}]
 
 
@@ -669,7 +762,7 @@ def _n_obs(leaf: Path):
 
 def build_model_reference(summary_config: dict, base_dir: Path):
     """S0: per-model reference: response transform, inverse-variance weighting, n,
-    and the fitted random-effect standard deviations, for every fit in the S1a
+    and the fitted random-effect standard deviations, for every fit in the S1
     homeostasis config (reused via ``from_config``)."""
     from_cfg = base_dir / summary_config["from_config"]
     with open(from_cfg) as f:
@@ -779,17 +872,82 @@ def build_locality(summary_config: dict, base_dir: Path):
     return headers, out
 
 
-# Every builder now has the same (config, base_dir) signature.
+def build_detector_agreement(summary_config: dict, base_dir: Path):
+    """S6a-c: each detector's agreement with the manual annotations, mean ± s.d. across
+    structures, from the cnpix_local_sleep ``export-detector-agreement`` CSV.
+
+    Rows are the ``detectors`` ({detector: label}, in order). Each ``columns`` entry picks
+    an ``annotation``, a ``reference`` (default: the annotation) and a ``metric`` (default:
+    its section's), and may set ``decimals`` (default 2) and a ``group``, a header spanning
+    consecutive columns. ``{n}`` in a column label is the column's number of structures;
+    with ``cell_counts``, a cell over fewer structures than its column ends with its own
+    count in brackets. ``sections`` ({title, metric}) repeat the detector rows per metric.
+    Returns a third element, the header groups, when any column has a ``group``.
+    """
+    import statistics
+
+    by_column: dict = {}
+    for r in _read_csv_rows(base_dir / summary_config["data_csv"]):
+        by_column.setdefault((r["annotation"], r["reference"]), []).append(r)
+
+    def column_rows(col):
+        return by_column.get((col["annotation"], col.get("reference", col["annotation"])), [])
+
+    def n_structures(rows):
+        return len({(r["subject"], r["probe"], r["structure"]) for r in rows})
+
+    def cell(col, metric, detector):
+        rows = column_rows(col)
+        xs = [x for r in rows if r["detector"] == detector
+              and (x := _fnum(r, metric)) is not None and math.isfinite(x)]
+        if not xs:
+            return Cell("")
+        d = col.get("decimals", 2)
+        text = f"{statistics.fmean(xs):.{d}f} ± {statistics.stdev(xs):.{d}f}"
+        if summary_config.get("cell_counts") and len(xs) < n_structures(rows):
+            text += f" ({len(xs)})"
+        return Cell(text)
+
+    columns = summary_config["columns"]
+    headers = [summary_config.get("row_header", "")] + [
+        c["label"].format(n=n_structures(column_rows(c))) for c in columns
+    ]
+    sections = []
+    for sec in summary_config.get("sections") or [{}]:
+        blocks = [
+            {"label": label,
+             "rows": [{"cells": [cell(c, c.get("metric", sec.get("metric")), det) for c in columns]}]}
+            for det, label in summary_config["detectors"].items()
+        ]
+        sections.append({"title": sec.get("title", ""), "blocks": blocks})
+    if not any(c.get("group") for c in columns):
+        return headers, sections
+    header_groups = [["", 1]]
+    for c in columns:
+        g = c.get("group", "")
+        if len(header_groups) > 1 and header_groups[-1][0] == g:
+            header_groups[-1][1] += 1
+        else:
+            header_groups.append([g, 1])
+    return headers, sections, header_groups
+
+
+# Every builder has the same (config, base_dir) signature and returns (headers, sections)
+# or (headers, sections, header_groups); header_groups = [[label, n_columns], ...] spans
+# the header row.
 TABLE_BUILDERS = {
     "model_reference": build_model_reference,
     "homeostasis": build_document,
     "locality": build_locality,
     "correlation_slope": build_correlation_slope,
     "correlation_robustness": build_correlation_robustness,
+    "correlation_alternatives": build_correlation_alternatives,
     "depth_profile": build_depth_profile,
     "per_event_meta": build_per_event_meta,
+    "per_event_multivariable": build_per_event_multivariable,
     "epoched_partial": build_epoched_partial,
     "size_globality": build_size_globality,
+    "detector_agreement": build_detector_agreement,
 }
 
 
@@ -808,24 +966,29 @@ def _iter_render_rows(sections):
                 yield ("data", texts, sig)
 
 
-def _flat_rows(headers, sections):
+def _group_row(header_groups):
+    """The spanning header row expanded to one entry per column (blank continuations)."""
+    return [x for label, span in header_groups for x in [label] + [""] * (span - 1)]
+
+
+def _flat_rows(headers, sections, header_groups=None):
     """Flatten to a plain list-of-lists (for CSV / console), section titles inline."""
-    out = [list(headers)]
+    out = ([_group_row(header_groups)] if header_groups else []) + [list(headers)]
     for kind, cells, _sig in _iter_render_rows(sections):
         out.append(cells if kind == "data" else [cells])
     return out
 
 
-def write_csv(headers, sections, path: Path):
+def write_csv(headers, sections, path: Path, header_groups=None):
     import csv
 
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerows(_flat_rows(headers, sections))
+        w.writerows(_flat_rows(headers, sections, header_groups))
 
 
-def _fill_xlsx_sheet(ws, headers, sections, title, caption):
+def _fill_xlsx_sheet(ws, headers, sections, title, caption, header_groups=None):
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
     thin = Side(style="thin", color="999999")
@@ -836,12 +999,23 @@ def _fill_xlsx_sheet(ws, headers, sections, title, caption):
     ncol = len(full_headers)
 
     ws.cell(1, 1, title).font = Font(bold=True, size=12)
+    header_row = 2
+    if header_groups:
+        c = 1
+        for label, span in header_groups:
+            cell = ws.cell(2, c, label)
+            cell.font = Font(bold=True)
+            cell.alignment = center
+            if span > 1:
+                ws.merge_cells(start_row=2, start_column=c, end_row=2, end_column=c + span - 1)
+            c += span
+        header_row = 3
     for c, h in enumerate(full_headers, start=1):
-        cell = ws.cell(2, c, h)
+        cell = ws.cell(header_row, c, h)
         cell.font = Font(bold=True)
         cell.alignment = center
         cell.border = Border(bottom=thin, top=thin)
-    r = 3
+    r = header_row + 1
 
     for section in sections:
         if section.get("title"):
@@ -877,15 +1051,15 @@ def _fill_xlsx_sheet(ws, headers, sections, title, caption):
     ws.column_dimensions["D"].width = 20
     for i in range(ncol - 4):
         ws.column_dimensions[chr(ord("E") + i)].width = 26
-    ws.freeze_panes = ws.cell(3, 1)
+    ws.freeze_panes = ws.cell(header_row + 1, 1)
 
 
-def write_xlsx(headers, sections, path: Path, title: str, caption: str):
+def write_xlsx(headers, sections, path: Path, title: str, caption: str, header_groups=None):
     from openpyxl import Workbook
 
     path.parent.mkdir(parents=True, exist_ok=True)
     wb = Workbook()
-    _fill_xlsx_sheet(wb.active, headers, sections, title, caption)
+    _fill_xlsx_sheet(wb.active, headers, sections, title, caption, header_groups)
     wb.active.title = "table"
     wb.save(path)
 
@@ -900,7 +1074,8 @@ def write_supplement_xlsx(tables, path: Path):
     wb.remove(wb.active)
     for t in tables:
         ws = wb.create_sheet(title=t["sheet"][:31])
-        _fill_xlsx_sheet(ws, t["headers"], t["sections"], t["title"], t["caption"])
+        _fill_xlsx_sheet(ws, t["headers"], t["sections"], t["title"], t["caption"],
+                         t.get("header_groups"))
     wb.save(path)
 
 
@@ -918,17 +1093,27 @@ def _import_docx():
         ) from exc
 
 
-def _append_docx_table(doc, headers, sections, title, caption):
+def _append_docx_table(doc, headers, sections, title, caption, header_groups=None):
     _, WD_TABLE_ALIGNMENT, Pt = _import_docx()
     doc.add_paragraph(title).runs[0].bold = True
 
     full_headers = list(headers)
     ncol = len(full_headers)
-    table = doc.add_table(rows=1, cols=ncol)
+    table = doc.add_table(rows=2 if header_groups else 1, cols=ncol)
     table.style = "Table Grid"
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    if header_groups:
+        c = 0
+        for label, span in header_groups:
+            cell = table.rows[0].cells[c]
+            if span > 1:
+                cell = cell.merge(table.rows[0].cells[c + span - 1])
+            run = cell.paragraphs[0].add_run(label)
+            run.bold = True
+            run.font.size = Pt(8)
+            c += span
     for c, h in enumerate(full_headers):
-        cell = table.rows[0].cells[c]
+        cell = table.rows[-1].cells[c]
         cell.text = ""
         p = cell.paragraphs[0]
         lines = str(h).split("\n")
@@ -962,11 +1147,11 @@ def _append_docx_table(doc, headers, sections, title, caption):
     cap.add_run(caption).font.size = Pt(8)
 
 
-def write_docx(headers, sections, path: Path, title: str, caption: str):
+def write_docx(headers, sections, path: Path, title: str, caption: str, header_groups=None):
     Document, _, _ = _import_docx()
     path.parent.mkdir(parents=True, exist_ok=True)
     doc = Document()
-    _append_docx_table(doc, headers, sections, title, caption)
+    _append_docx_table(doc, headers, sections, title, caption, header_groups)
     doc.save(path)
 
 
@@ -979,7 +1164,8 @@ def write_supplement_docx(tables, path: Path):
     for i, t in enumerate(tables):
         if i > 0:
             doc.add_page_break()
-        _append_docx_table(doc, t["headers"], t["sections"], t["title"], t["caption"])
+        _append_docx_table(doc, t["headers"], t["sections"], t["title"], t["caption"],
+                           t.get("header_groups"))
     doc.save(path)
 
 
@@ -1012,10 +1198,11 @@ def render_config(summary_yaml: Path) -> dict:
     builder = TABLE_BUILDERS.get(table_type)
     if builder is None:
         raise SystemExit(f"Unknown table_type: {table_type!r} (have {list(TABLE_BUILDERS)})")
-    headers, sections = builder(summary_config, base_dir)
+    headers, sections, *header_groups = builder(summary_config, base_dir)
     return {
         "headers": headers,
         "sections": sections,
+        "header_groups": header_groups[0] if header_groups else None,
         "title": summary_config.get("title", summary_yaml.stem),
         "caption": summary_config.get("caption", ""),
         "stem": summary_yaml.stem,
@@ -1058,16 +1245,16 @@ def main(argv=None):
         return
 
     t = render_config(args.summary_yaml)
-    for row in _flat_rows(t["headers"], t["sections"]):
+    for row in _flat_rows(t["headers"], t["sections"], t["header_groups"]):
         print(" | ".join(str(x) for x in row))
     out_dir = t["base_dir"] / t["output_dir"]
     csv_path = args.csv or (out_dir / f"{t['stem']}.csv")
     xlsx_path = args.xlsx or (out_dir / f"{t['stem']}.xlsx")
-    write_csv(t["headers"], t["sections"], csv_path)
-    write_xlsx(t["headers"], t["sections"], xlsx_path, t["title"], t["caption"])
+    write_csv(t["headers"], t["sections"], csv_path, t["header_groups"])
+    write_xlsx(t["headers"], t["sections"], xlsx_path, t["title"], t["caption"], t["header_groups"])
     print(f"\nCSV : {csv_path}\nXLSX: {xlsx_path}", file=sys.stderr)
     docx_path = args.docx or (out_dir / f"{t['stem']}.docx")
-    write_docx(t["headers"], t["sections"], docx_path, t["title"], t["caption"])
+    write_docx(t["headers"], t["sections"], docx_path, t["title"], t["caption"], t["header_groups"])
     print(f"DOCX: {docx_path}", file=sys.stderr)
 
 

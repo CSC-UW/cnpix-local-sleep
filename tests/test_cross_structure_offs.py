@@ -1,4 +1,4 @@
-"""Tests for the OFF-source-aware cross-structure OFF pipeline.
+"""Tests for the cross-structure OFF pipeline.
 
 The pure path/categorization checks need no data. The loader smoke tests need
 mounted production data, so they are marked ``requires_nfs`` and gated behind
@@ -26,7 +26,7 @@ def _skip_without_nfs() -> None:
 
 
 def test_off_sources_and_default():
-    assert csx.OFF_SOURCES == ("morphological-full48h", "morphological")
+    assert csx.OFF_SOURCES == ("morphological-full48h",)
     assert csx.DEFAULT_OFF_SOURCE == "morphological-full48h"
 
 
@@ -35,24 +35,21 @@ def test_check_off_source_rejects_unknown():
         csx.get_multi_cortical_subjects("not-a-source")
 
 
-# Output-path scheme: the three sources must not collide
+# Output-path scheme
 
 
-def test_output_dirs_are_distinct_and_encode_source():
+def test_output_dir_encodes_source():
     subject = "CNPIX12-Santiago"
     full = str(csx._get_output_dir(subject, "morphological-full48h"))
-    mua = str(csx._get_output_dir(subject, "morphological"))
-
-    # Whole-recording and per-condition OFFs share a ``method=`` segment, so
-    # only ``off_source=`` keeps them from overwriting each other.
-    assert full != mua
 
     assert "method=morphological" in full
     assert "analysis=cross_structure_offs" in full
     assert "off_source=full48h" in full
 
-    assert "method=morphological" in mua
-    assert "off_source=per_condition" in mua
+
+def test_output_dir_rejects_unknown_source():
+    with pytest.raises(ValueError, match="Unknown off_source"):
+        csx._get_output_dir("CNPIX12-Santiago", "morphological")
 
 
 def test_output_path_appends_filename():
@@ -90,10 +87,9 @@ def test_assign_las_category_most_restrictive():
 # -------------------- Whole-recording loader is full-48h only --------------------
 
 
-@pytest.mark.parametrize("off_source", ["morphological", "tom-bugnon"])
-def test_load_whole_recording_offs_requires_full48h(off_source):
+def test_load_whole_recording_offs_requires_full48h():
     with pytest.raises(ValueError, match="morphological-full48h"):
-        csx.load_whole_recording_offs(off_source)
+        csx.load_whole_recording_offs("not-a-source")
 
 
 # -------------------- NFS-gated loader smoke tests --------------------
@@ -204,10 +200,9 @@ def test_windowed_jitter_drops_out_of_domain():
     assert len(jit) == 1  # the out-of-bout OFF is dropped
 
 
-@pytest.mark.parametrize("off_source", ["morphological", "tom-bugnon"])
-def test_excess_globality_requires_full48h(off_source):
+def test_excess_globality_requires_full48h():
     with pytest.raises(ValueError, match="morphological-full48h"):
-        csx.do_subject_excess_globality("CNPIX12-Santiago", off_source=off_source)
+        csx.do_subject_excess_globality("CNPIX12-Santiago", off_source="not-a-source")
 
 
 def _excess_df_with_offset(rng, offset, n_subjects=9, n_structs=2, n_offs=200):

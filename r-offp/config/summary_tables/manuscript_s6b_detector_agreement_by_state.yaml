@@ -1,0 +1,39 @@
+# Manuscript Supplementary Table S6b: detectors against the manual annotation of early
+# recovery NREM sleep, circadian-matched baseline NREM sleep and sleep-deprivation wake.
+#
+# Consumed by manuscript_tables.py (table_type: detector_agreement). Data produced by
+# cnpix_local_sleep `off-analysis export-detector-agreement` (requires NFS) from the scores
+# that batch_manual_vs_banded_and_morphological.ipynb (NREM) and
+# manual_annotation_sets.ipynb (Match, SD) save.
+
+table_type: detector_agreement
+results_dir: inst
+data_csv: inst/extdata/manual_detector_agreement.csv
+output_dir: _output_manuscript
+sheet: "S6b Manual agreement by state"
+
+title: "Supplementary Table S6b. Agreement between automated OFF-period detectors and manual annotation of NREM sleep and wake."
+caption: >-
+  F1, event recall and event precision (defined as in Supplementary Table S6a; mean ±
+  s.d. across annotated cortical structures) between each detector and the manually
+  segmented OFF periods. Columns give early recovery NREM sleep (as in Supplementary Table
+  S6a), NREM sleep on the baseline day at the clock time of early recovery sleep, and wake
+  across the whole 6-h sleep deprivation. Numbers of structures are in brackets where
+  fewer than the column's, because greedy-tiled bands could not be constructed for
+  structures with low firing rates.
+
+row_header: ""
+cell_counts: true
+detectors:
+  llas: "Morphological, relaxed"
+  clas: "Morphological, stringent"
+  banded-fixed_tiled: "Unit-based, fixed-tiled"
+  banded-greedy_fr: "Unit-based, greedy-tiled"
+sections:
+  - {title: F1, metric: F1}
+  - {title: Event recall, metric: event_recall}
+  - {title: Event precision, metric: event_precision}
+columns:
+  - {annotation: NREM, label: "Early recovery NREM ({n})"}
+  - {annotation: Match, label: "Circadian-matched baseline NREM ({n})"}
+  - {annotation: SD, label: "Sleep deprivation, wake ({n})"}

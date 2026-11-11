@@ -12,7 +12,8 @@ swaps in the locality conventions. Two plot types are driven from
   kind (``overlap_degree``) in the slot ``plot_results.py`` reserves for the
   condition set; conditions + posthocs are read from the ``overlap_degree`` block
   of ``config/locality.yaml``. Each six-condition fit yields a NREM panel (4
-  conditions) and a wake panel (2 conditions).
+  conditions) and a wake panel (2 conditions), plus the two panels on one
+  shared y axis (``shared_y``).
 
 * request 2 (``local_vs_overlapping`` section): the notebook's
   ``cross_structure_4b`` figure: two dodged violins (Local, Overlapping) per
@@ -39,6 +40,7 @@ import matplotlib
 matplotlib.use("Agg")  # headless SVG generation; must precede pyplot import
 
 import matplotlib.pyplot as plt
+from matplotlib.collections import PathCollection
 import pandas as pd
 import seaborn as sns
 import yaml
@@ -54,9 +56,18 @@ logger = logging.getLogger(__name__)
 # "Mean # overlapping structures" subplot). Not in plot_results.LABEL_MAP.
 OVERLAP_DEGREE_YLABEL = "Mean # overlapping structures"
 
+# Inverses of the R response transforms (R/model_fitting.R) that the overlap_degree
+# models use, so that adjusted data are plotted in the response's own units.
+INVERSE_TRANSFORMS = {"identity": lambda y: y, "sqrt": lambda y: y ** 2}
+
 # Two-color palette for overlap statuses (Local = tan, Overlapping = plum).
 LOCALITY_PALETTE = {"Local": "#DC9D81", "Overlapping": "#5C3161"}
 OVERLAP_ORDER = ["Local", "Overlapping"]
+
+# Shared-y figure (Fig. 4b) styling relative to the plot_results defaults.
+SHARED_Y_FIGSIZE = (3.3, 2)
+SHARED_Y_MARKER_AREA_SCALE = 2.0
+SHARED_Y_QUARTILE_LW_SCALE = 0.5
 
 
 def load_locality_overlap_data(data_dir: Path, data_file: str) -> pd.DataFrame:
@@ -94,10 +105,15 @@ def _save_panels(
     plot_kind: str,
     condition_tick_labels: dict[str, str] | None,
     ylabel: str,
-    nrem_tag: str,
-    wake_tag: str,
+    suffix: str = "",
 ) -> int:
-    """Draw + save the NREM and wake violin panels; return the count saved."""
+    """Draw + save the NREM and wake violin panels; return the count saved.
+
+    Three files per call: the two standalone panels (``nrem``, ``wake``) and the
+    same two panels side by side on one shared y axis (``shared_y``). ``suffix``
+    (e.g. ``_adjusted``) is appended to each tag.
+    """
+    nrem_tag, wake_tag = f"nrem{suffix}", f"wake{suffix}"
     n = 0
     fig, _ = pr.plot_nrem_violin(
         df, response_var, bars, sig_config, ylabel=ylabel,
@@ -126,7 +142,97 @@ def _save_panels(
     pr.plt.close(fig)
     logger.info("Saved %s", wake_path)
     n += 1
+
+    fig = plot_shared_y_panels(
+        df, response_var, bars, sig_config, ylabel, condition_tick_labels, plot_kind,
+    )
+    path = pr.get_output_path(
+        output_dir, dataset, analysis_kind, response_var, model, f"shared_y{suffix}",
+        plot_kind=plot_kind,
+    )
+    fig.savefig(path)
+    pr.plt.close(fig)
+    logger.info("Saved %s", path)
+    n += 1
     return n
+
+
+def _back_transform(df: pd.DataFrame, response_var: str, models: list[dict],
+                    model: str) -> pd.DataFrame:
+    """Undo the named model's response transform, which R applies before it
+    subtracts the random effects."""
+    model_def = next(m for m in models if m["name"] == model)
+    transform = model_def.get("transform", "identity")
+    if transform not in INVERSE_TRANSFORMS:
+        raise NotImplementedError(f"No inverse for response transform {transform!r}")
+    df = df.copy()
+    df[response_var] = INVERSE_TRANSFORMS[transform](df[response_var])
+    return df
+
+
+def _split_bars(bars: list[dict]) -> tuple[list[dict], list[dict]]:
+    nrem = [b for b in bars if b["contrast_norm"] in pr.NREM_CONTRASTS]
+    wake = [b for b in bars if b["contrast_norm"] == pr.WAKE_CONTRAST]
+    return nrem, wake
+
+
+def _restyle_violin_axis(ax: "matplotlib.axes.Axes") -> None:
+    """Rescale strip markers and violin quartile lines drawn by plot_results.
+
+    Must run before significance bars are added, while ``ax.lines`` holds only
+    seaborn's quartile lines. Dash lengths are kept constant on the page, since
+    matplotlib scales dash patterns with line width.
+    """
+    for coll in ax.collections:
+        if isinstance(coll, PathCollection):
+            coll.set_sizes(coll.get_sizes() * SHARED_Y_MARKER_AREA_SCALE)
+    for line in ax.lines:
+        offset, dashes = line._unscaled_dash_pattern
+        line.set_linewidth(line.get_linewidth() * SHARED_Y_QUARTILE_LW_SCALE)
+        if dashes:
+            line.set_linestyle(
+                (offset / SHARED_Y_QUARTILE_LW_SCALE,
+                 [d / SHARED_Y_QUARTILE_LW_SCALE for d in dashes])
+            )
+
+
+def plot_shared_y_panels(
+    df: pd.DataFrame,
+    response_var: str,
+    bars: list[dict],
+    sig_config: dict,
+    ylabel: str,
+    condition_tick_labels: dict[str, str] | None,
+    plot_kind: str,
+) -> "matplotlib.figure.Figure":
+    """Wake and NREM panels side by side (wake left) on one shared y axis.
+
+    The violins are drawn first without bars so that both panels autoscale to
+    the common data range; the significance bars of each panel are then placed
+    from that same baseline, and the axis is extended to clear the taller stack.
+    """
+    nrem_bars, wake_bars = _split_bars(bars)
+    fig, (ax_w, ax_n) = plt.subplots(
+        1, 2, figsize=pp.scale(*SHARED_Y_FIGSIZE), sharey=True, width_ratios=[2, 4],
+    )
+    pr.plot_wake_violin(
+        df, response_var, [], sig_config, ylabel=ylabel,
+        condition_tick_labels=condition_tick_labels, plot_kind=plot_kind, ax=ax_w,
+    )
+    pr.plot_nrem_violin(
+        df, response_var, [], sig_config, ylabel="",
+        condition_tick_labels=condition_tick_labels, plot_kind=plot_kind, ax=ax_n,
+    )
+    for ax in (ax_n, ax_w):
+        _restyle_violin_axis(ax)
+    base = ax_n.get_ylim()
+    pr.draw_significance_bars(ax_w, wake_bars, pr.WAKE_CONDITIONS, sig_config)
+    top_w = ax_w.get_ylim()[1]
+    ax_n.set_ylim(base)
+    pr.draw_significance_bars(ax_n, nrem_bars, pr.NREM_CONDITIONS, sig_config)
+    top_n = ax_n.get_ylim()[1]
+    ax_n.set_ylim(base[0], max(top_w, top_n))
+    return fig
 
 
 # Request 2: within-condition Local-vs-Overlapping violins
@@ -416,7 +522,7 @@ def main() -> None:
             n_generated += _save_panels(
                 df, response_var, bars, sig_config, output_dir, dataset,
                 analysis_kind, model, plot_kind,
-                condition_tick_labels, OVERLAP_DEGREE_YLABEL, "nrem", "wake",
+                condition_tick_labels, OVERLAP_DEGREE_YLABEL,
             )
 
             # Adjusted panels (random effects removed), if the CSV exists.
@@ -424,12 +530,14 @@ def main() -> None:
                 results_dir, dataset, analysis_kind, response_var, model,
             )
             if df_adj is not None:
+                df_adj = _back_transform(
+                    df_adj, response_var, od_block.get("models", []), model,
+                )
                 n_generated += _save_panels(
                     df_adj, response_var, bars, sig_config, output_dir, dataset,
                     analysis_kind, model, plot_kind,
                     condition_tick_labels,
-                    OVERLAP_DEGREE_YLABEL + " (RE removed)",
-                    "nrem_adjusted", "wake_adjusted",
+                    OVERLAP_DEGREE_YLABEL + " (RE removed)", suffix="_adjusted",
                 )
 
         # Request 2: within-condition Local-vs-Overlapping violins

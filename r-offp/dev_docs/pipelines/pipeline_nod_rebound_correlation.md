@@ -1,6 +1,6 @@
 ---
 title: NOD-rebound correlation companion pipeline
-updated: 2026-08-19
+updated: 2026-11-09
 ---
 
 # NOD-rebound correlation
@@ -15,8 +15,9 @@ the NOD predictor is estimated in a linear mixed model with `subject` (and
 optionally `structure`) as random intercepts. Additive: deleting
 `R/correlation_analysis.R`, `config/nod_rebound_correlation.yaml`,
 `scripts/*correlation*.R`, `tests/testthat/test-correlation_analysis.R`, the
-`nod_rebound_correlation_*_offs.parquet` extdata, and `_output_correlations/`
-(then `devtools::document()`) removes it without touching anything else.
+`nod_rebound_correlation_*_offs.parquet` and `manual_event_agreement.csv` extdata,
+and `_output_correlations/` (then `devtools::document()`) removes it without
+touching anything else.
 
 - Data: `nod_rebound_correlation_{off_type}_offs.parquet`, exported by
   cnpix_local_sleep's `off-analysis export-nod-rebound-correlation` (conditions: the two
@@ -54,6 +55,23 @@ optionally `structure`) as random intercepts. Additive: deleting
   `llas`/`clas`/`blas`/`llas_exclusive` (`llas & ~clas`; from
   `export-nod-rebound-correlation --category llas_exclusive`) × 2 predictors
   (`NOD`, `NOD.Wake`).
+- Alternatives (`alternatives:` in the config; Supplementary Table S4c): refits
+  of the `subject` model on the `NOD` predictor for `llas` and `clas`. An entry
+  may add `covariates:` (kept in both the full and the null model, so the LRT
+  tests `x` given them), `rebound_scale: log_ratio` (`y = log(post / baseline)`)
+  and `spearman:` (terms whose Spearman correlations with `x` and `y` are
+  reported without entering the model; covariates are always reported, in
+  `results.json`'s `spearman`). The covariate names are defined in
+  `build_correlation_covariates()`: `baseline_<metric>`, `predictor_<metric>`,
+  `ap_coord`, `delta_rebound`, `late_nod_delta`, `intrusion_fraction`,
+  `event_recall` and `event_precision`. The last two come from
+  `manual_event_agreement.csv` (`load_event_agreement()`), exported by
+  cnpix_local_sleep's `off-analysis export-event-agreement` from the Supplementary
+  Table S6a scores on NFS; 28 of the 29 combos have manual labels. Outputs go to
+  `_output_correlations/alternatives/<dataset>/<metric>[__vs__<response>][__log_ratio][__adj__<covariate>]/NOD/subject/`,
+  outside the four-level tree the robustness diagnostics glob, because those
+  refit `y ~ x` alone. `run_all_correlation_analyses.R` runs them after each
+  dataset's base fits.
 - Run: `Rscript scripts/run_all_correlation_analyses.R [dataset]`
   (or `run_correlation_analysis.R <metric> [model] [dataset]`), sweeps every
   predictor, writing to the separate

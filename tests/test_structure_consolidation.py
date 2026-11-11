@@ -6,26 +6,28 @@ aliased structures and recomputes the atlas-derived per-structure columns
 relabeled row carries the *same* metadata as a native row of the target label and
 the downstream ``struct_info`` merge does not fan out.
 
-The atlas caches are pre-populated so these tests do not require the BrainGlobe
-atlas download.
+The clade lookup is patched and the A/P cache pre-populated, so these tests do
+not require the BrainGlobe atlas download.
 """
 
 from __future__ import annotations
 
 import pandas as pd
 import pytest
+from cnpix.units import regions
 
 from cnpix_local_sleep import atlas
 
 
 @pytest.fixture(autouse=True)
-def _seed_atlas_caches():
-    """Populate the atlas caches with the PPC-family values used below.
+def _seed_atlas_caches(monkeypatch):
+    """Populate the atlas lookups with the PPC-family values used below.
 
     ``mPPC`` (Parietal association cortex, medial area) sits ~560 um anterior to
     ``PPC`` (Posterior parietal cortex); both fall in the ``cent-post`` A/P bin.
     """
-    atlas._CLADE_CACHE.update({"mPPC": "Cx", "PPC": "Cx", "V2": "Cx"})
+    clades = {"mPPC": "Cx", "PPC": "Cx", "V2": "Cx"}
+    monkeypatch.setattr(regions, "get_clade", clades.__getitem__)
     # Keyed by (structure, method) -- see atlas.AP_CENTROID_METHODS.
     atlas._AP_COORD_CACHE.update(
         {

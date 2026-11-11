@@ -39,14 +39,14 @@ class TestMorphologicalPaths:
         assert "structure=PPC" in path_str
 
     @pytest.mark.parametrize(
-        "fn_name",
+        "fn_name, kwargs",
         [
-            "get_channel_thresholds_path",
-            "get_off_label_indices_path",
-            "get_offs_path",
+            ("get_full_offs_path", {}),
+            ("get_full_off_label_indices_path", {}),
+            ("get_full_channel_thresholds_path", {"threshold_type": "nrem"}),
         ],
     )
-    def test_detection_outputs_under_mua_method(self, fn_name: str):
+    def test_detection_outputs_under_mua_method(self, fn_name: str, kwargs: dict):
         from cnpix_local_sleep.morphological.mua import files as mua_files
 
         path = str(
@@ -54,11 +54,11 @@ class TestMorphologicalPaths:
                 subject="CNPIX15-Claude",
                 probe="imec0",
                 structure="PPC",
-                condition="Early.NOD.Wake",
-                threshold_group=None,
+                **kwargs,
             )
         )
         assert MUA_METHOD in path
+        assert "condition=Early" not in path
         assert ANNOTATION_GRID_METHOD not in path, (
             f"{fn_name} must not write into the annotation grid tree"
         )

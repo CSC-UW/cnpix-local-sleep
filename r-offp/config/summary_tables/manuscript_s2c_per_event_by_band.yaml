@@ -1,0 +1,30 @@
+# Manuscript Supplementary Table S2c: per-event OFF property vs power in three LFP bands.
+#
+# Consumed by manuscript_tables.py (table_type: per_event_meta, with band_labels). Data
+# produced by the by-band branch of cnpix_local_sleep
+# `python -m cnpix_local_sleep.morphological.pipeline.export_manuscript_correlations`:
+# the S2a per-event pooling repeated for each band's centre (midpoint) log power.
+# Bonferroni across the four properties is applied within each band.
+
+table_type: per_event_meta
+results_dir: inst
+data_csv: inst/extdata/manuscript_per_event_correlations_by_band.csv
+output_dir: _output_manuscript
+
+band_labels:
+  delta: "0.5–4 Hz (delta)"
+  eta: "2–6 Hz"
+  theta: "5–10 Hz"
+
+title: "Supplementary Table S2c. Per-event correlation between OFF-period properties and co-occurring power in three LFP frequency bands."
+caption: >-
+  As Supplementary Table S2a, with OFF-period properties correlated with instantaneous
+  power in three frequency bands of the bipolar LFP: 0.5–4 Hz (delta; the values of
+  Supplementary Table S2a), 2–6 Hz and 5–10 Hz. Power in each band was computed by the
+  same filter-Hilbert procedure, log-transformed, and taken at the OFF-period midpoint.
+  Multiple comparisons across the four properties are Bonferroni-controlled within each
+  band. All OFFs = relaxed criterion; Medium + Large = stringent; Small = relaxed but
+  not stringent.
+section_title: ""
+
+sheet: "S2c Per-event by band"
